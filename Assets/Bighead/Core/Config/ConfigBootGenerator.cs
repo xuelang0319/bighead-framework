@@ -3,7 +3,7 @@ using Bighead.Core.Utility;
 using Bighead.Csv;
 using UnityEditor;
 
-namespace framework_bighead.Config
+namespace Bighead.Core.Config
 {
     [InitializeOnLoad]
     public static class ConfigBootGenerator

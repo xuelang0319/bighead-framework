@@ -1,5 +1,5 @@
 ﻿#if UNITY_EDITOR
-using framework_bighead.Config;
+using Bighead.Core.Config;
 
 namespace Bighead.Csv
 {

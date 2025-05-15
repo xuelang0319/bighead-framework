@@ -49,7 +49,6 @@ namespace Bighead.Csv
                 "System",
                 "System.Linq",
                 "UnityEngine",
-                "Newtonsoft.Json.Linq",
                 "System.Collections.Generic",
             };
         }

@@ -78,12 +78,12 @@ namespace Bighead.Csv
                 IsPartial = true,
                 Modifier = GenBasic.modifier.Public_Static
             };
-            genClass.SetNameSpace("Bighead");
+            genClass.SetNameSpace("Bighead.Csv");
 
             // 添加引用数据
             var usingArray = CustomerGenCsv.GetUsingArray();
             genClass.AddUsing(usingArray);
-            genClass.AddUsing("static Bighead.CustomerGenCsv");
+            genClass.AddUsing("static Bighead.Csv.CustomerGenCsv");
 
             // 添加方法
             var foo = genClass.AddFoo($"Get{className}", className);
@@ -128,7 +128,7 @@ namespace Bighead.Csv
                 Modifier = GenBasic.modifier.Public,
                 Parent = $"CsvEagerLoading<{tKey}, {tEntry}>",
             };
-            genClass.SetNameSpace("Bighead");
+            genClass.SetNameSpace("Bighead.Csv");
             return genClass;
         }
         
@@ -246,7 +246,7 @@ namespace Bighead.Csv
                 var type = CustomerGenCsv.GetPropertyType(sheetContent[1][index], out _);
                 keyStruct.AddProperty(name, type);
             }
-            keyStruct.SetNameSpace("Bighead");
+            keyStruct.SetNameSpace("Bighead.Csv");
             keyStruct.Modifier = GenBasic.modifier.Public;
 
             builder.AppendLine(keyStruct.StartGenerate().ToString());

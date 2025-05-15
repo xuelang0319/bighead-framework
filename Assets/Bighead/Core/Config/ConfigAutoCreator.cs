@@ -4,7 +4,7 @@ using System.IO;
 using UnityEditor;
 using UnityEngine;
 
-namespace framework_bighead.Config
+namespace Bighead.Core.Config
 {
     public static  class ConfigAutoCreator
     {

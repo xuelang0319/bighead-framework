@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
 
-namespace framework_bighead.Config
+namespace Bighead.Core.Config
 {
     public static  class ConfigRegistryEditor
     {
@@ -16,7 +16,7 @@ namespace framework_bighead.Config
             if (cache.TryGetValue(type, out var existing))
                 return (T)existing;
 
-            string assetPath = $"Assets/Configs/{type.Name}.asset";
+            string assetPath = $"Assets/Bighead/Configs/{type.Name}.asset";
             var asset = AssetDatabase.LoadAssetAtPath<T>(assetPath);
             if (asset == null)
             {
