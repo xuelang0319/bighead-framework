@@ -1,4 +1,5 @@
-﻿//
+﻿#if UNITY_EDITOR
+//
 // = The script is part of BigHead and the framework is individually owned by Eric Lee.
 // = Cannot be commercially used without the authorization.
 //
@@ -15,7 +16,6 @@ using System.Text;
 using System.Text.RegularExpressions;
 using Bighead.Core.Utility;
 using Excel;
-using framework_bighead.Csv;
 using UnityEditor;
 
 namespace Bighead.Csv
@@ -56,7 +56,7 @@ namespace Bighead.Csv
         /// MD5校验文件路径
         /// </summary>
         private static string CSV_CONFIG_PATH = Path.Combine(CsvConfig.NONE_META_TABLE_PATH, "CsvConfig.bh");
-        
+
         private static void DeleteConfig()
         {
             FileHelper.DeleteUnityFile(CSV_CONFIG_PATH);
@@ -121,7 +121,8 @@ namespace Bighead.Csv
                         // 2、ExcelName $ SheetName @ MD5
                         if (!recordData.StartsWith(excelName)) return false;
                         // 这里校验recordData包含的Excel名称信息是否和excelName相等
-                        return !string.IsNullOrEmpty(Path.GetExtension(recordData)) || Equals(excelName.Split('$')[0], excelName);
+                        return !string.IsNullOrEmpty(Path.GetExtension(recordData)) ||
+                               Equals(excelName.Split('$')[0], excelName);
                     }).ToList();
 
                     foreach (var key in all)
@@ -156,7 +157,7 @@ namespace Bighead.Csv
                                : ExcelReaderFactory.CreateOpenXmlReader(stream))
                     {
                         var dataSet = excelReader.AsDataSet();
-                        
+
                         float createProgress = 0;
                         var tableCount = dataSet.Tables.Count;
                         foreach (DataTable table in dataSet.Tables)
@@ -182,14 +183,14 @@ namespace Bighead.Csv
 
                             var tableData = AnalysisTableData(rows, cols);
                             var tableString = Convert2String(tableData);
-                          
+
                             // 这里进行MD5校验
                             var md5 = BigheadCrypto.MD5Encode(tableString);
                             var dataName = $"{excelName}${sheetName}";
                             newData.Add(dataName, md5);
 
                             var tableFileHandler = TableFileHandler.GetHandler(excelName, sheetName);
-                            
+
                             // 如果进入判断说明存在，否则为新增
                             if (oldData.ContainsKey(dataName))
                             {
@@ -201,10 +202,11 @@ namespace Bighead.Csv
                                 if (Equals(value, md5)) continue;
 
                                 // 已改变，删除原来生成的数据。  -.csv, -.cs -.bytes
-                                EditorUtility.DisplayProgressBar($"删除变更前文件： {sheetName}", path, createProgress / tableCount);
+                                EditorUtility.DisplayProgressBar($"删除变更前文件： {sheetName}", path,
+                                    createProgress / tableCount);
                                 tableFileHandler.Delete();
                             }
-                            
+
                             tableFileHandler.SetContent(tableData);
                             tableFileHandler.Generate();
                         }
@@ -219,7 +221,7 @@ namespace Bighead.Csv
             {
                 ++deleteProgress;
                 EditorUtility.DisplayProgressBar($"正在删除旧数据:", key, deleteProgress / deleteCount);
-                
+
                 // 这里的 key 有两种可能：
                 // 1、 ExcelName.xlsx
                 // 2、 ExcelName $ SheetName
@@ -231,7 +233,7 @@ namespace Bighead.Csv
                 var tableFileHandler = TableFileHandler.GetHandler(array[0], array[1]);
                 tableFileHandler.Delete();
             }
-            
+
             var md5Entry = newData.Select(kv => $"{kv.Key}@{kv.Value}").ToArray();
             var md5Content = string.Join(Environment.NewLine, md5Entry);
             // 生成最新的配置文件
@@ -245,7 +247,7 @@ namespace Bighead.Csv
 
             EditorUtility.ClearProgressBar();
         }
-        
+
         private static List<List<string>> AnalysisTableData(DataRowCollection rows, DataColumnCollection cols)
         {
             // 过滤不生成的列
@@ -312,3 +314,4 @@ namespace Bighead.Csv
         }
     }
 }
+#endif

@@ -1,4 +1,5 @@
 ﻿#if UNITY_EDITOR
+using System;
 using System.IO;
 using UnityEditor;
 using UnityEngine;
@@ -7,7 +8,7 @@ namespace framework_bighead.Config
 {
     public static  class ConfigAutoCreator
     {
-        public static T CreateIfMissing<T>(string fullPath) where T : ScriptableObject
+        public static T CreateIfMissing<T>(string fullPath, Action<T> createCallback = null) where T : ScriptableObject
         {
             if (File.Exists(fullPath))
                 return AssetDatabase.LoadAssetAtPath<T>(fullPath);
@@ -20,6 +21,7 @@ namespace framework_bighead.Config
             AssetDatabase.CreateAsset(asset, fullPath);
             AssetDatabase.SaveAssets();
             Debug.Log($"[AutoCreator] Created config: {fullPath}");
+            createCallback?.Invoke(asset);
             return asset;
         }
     }

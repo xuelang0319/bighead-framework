@@ -1,5 +1,6 @@
 ﻿#if UNITY_EDITOR
-using framework_bighead.Csv;
+using Bighead.Core.Utility;
+using Bighead.Csv;
 using UnityEditor;
 
 namespace framework_bighead.Config
@@ -9,7 +10,11 @@ namespace framework_bighead.Config
     {
         static ConfigBootGenerator()
         {
-            ConfigAutoCreator.CreateIfMissing<CsvConfig>("Assets/Bighead/Configs/CsvConfig.asset");
+            ConfigAutoCreator.CreateIfMissing<CsvConfig>("Assets/Bighead/Configs/CsvConfig.asset",config =>
+            {
+                DirectoryHelper.ForceCreateDirectory(config.TABLE_EXCEL_PATH);
+            });
+            
             // 后续可加入更多模块
         }
     }

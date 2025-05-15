@@ -1,9 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using Bighead.Core.Utility;
-using framework_bighead.Csv;
 
 namespace Bighead.Csv
 {

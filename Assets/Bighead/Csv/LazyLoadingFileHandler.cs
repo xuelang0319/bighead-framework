@@ -4,7 +4,6 @@ using System.IO;
 using System.Text;
 using Bighead.Core.Generate;
 using Bighead.Core.Utility;
-using framework_bighead.Csv;
 using UnityEngine;
 
 namespace Bighead.Csv
@@ -77,8 +76,8 @@ namespace Bighead.Csv
                 IsPartial = true,
                 Modifier = GenBasic.modifier.Public_Static
             };
-            genClass.AddUsing("static Bighead.CustomerGenCsv");
-            genClass.SetNameSpace("Bighead");
+            genClass.AddUsing("Bighead.Csv.CustomerGenCsv");
+            genClass.SetNameSpace("Bighead.Csv");
 
             // 添加引用数据
             var usingArray = CustomerGenCsv.GetUsingArray();
@@ -345,7 +344,7 @@ namespace Bighead.Csv
                 var type = CustomerGenCsv.GetPropertyType(sheetContent[1][index], out _);
                 keyStruct.AddProperty(name, type);
             }
-            keyStruct.SetNameSpace("Bighead");
+            keyStruct.SetNameSpace("Bighead.Csv");
             keyStruct.Modifier = GenBasic.modifier.Public;
 
             builder.AppendLine(keyStruct.StartGenerate().ToString());

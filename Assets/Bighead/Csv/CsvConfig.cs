@@ -1,8 +1,7 @@
-﻿using System.Collections.Generic;
-using System.IO;
+﻿using System.IO;
 using UnityEngine;
 
-namespace framework_bighead.Csv
+namespace Bighead.Csv
 {
     [CreateAssetMenu(fileName = "CsvConfig", menuName = "Bighead/Configs/CsvConfig")]
     public class CsvConfig : ScriptableObject
