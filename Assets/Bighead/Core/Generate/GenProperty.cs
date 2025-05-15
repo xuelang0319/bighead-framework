@@ -8,9 +8,9 @@
 
 using System.Text;
 
-namespace Bighead.GenBasic
+namespace Bighead.Core.Generate
 {
-    public class GenProperty : Bighead.GenBasic.GenBasic
+    public class GenProperty : GenBasic
     {
         private readonly string _type;
         private string _value;

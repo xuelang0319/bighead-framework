@@ -9,7 +9,7 @@
 using System;
 using System.Text;
 
-namespace Bighead.GenBasic
+namespace Bighead.Core.Generate
 {
     public abstract class GenBasic
     {

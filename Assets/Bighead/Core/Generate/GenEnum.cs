@@ -1,9 +1,9 @@
 ﻿using System.Collections.Generic;
 using System.Text;
 
-namespace Bighead.GenBasic
+namespace Bighead.Core.Generate
 {
-    public class GenEnum : Bighead.GenBasic.GenBasic
+    public class GenEnum : GenBasic
     {
         private readonly Queue<GenEnumElement> _elements = new Queue<GenEnumElement>();
         private const string Type = "enum";
@@ -36,7 +36,7 @@ namespace Bighead.GenBasic
         }
     }
 
-    public class GenEnumElement : Bighead.GenBasic.GenBasic
+    public class GenEnumElement : Core.Generate.GenBasic
     {
         private readonly int _value;
         

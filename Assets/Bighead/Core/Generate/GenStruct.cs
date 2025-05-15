@@ -1,9 +1,9 @@
 ﻿using System.Collections.Generic;
 using System.Text;
 
-namespace Bighead.GenBasic
+namespace Bighead.Core.Generate
 {
-    public class GenStruct : Bighead.GenBasic.GenBasic
+    public class GenStruct : GenBasic
     {
         private readonly List<string> Attributes = new List<string>();
         public readonly List<string> Usings = new List<string>();

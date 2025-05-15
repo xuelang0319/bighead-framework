@@ -9,9 +9,9 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace Bighead.GenBasic
+namespace Bighead.Core.Generate
 {
-    public class GenFoo : Bighead.GenBasic.GenBasic
+    public class GenFoo : GenBasic
     {
         private readonly string _returnType;
         private List<GenProperty> _params;
