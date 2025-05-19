@@ -2,8 +2,9 @@
 using System.IO;
 using System.Text;
 using Bighead.Core.Utility;
+using Bighead.Csv;
 
-namespace Bighead.Csv
+namespace Bighead.Editor.Csv
 {
     public enum GeneratorType
     {

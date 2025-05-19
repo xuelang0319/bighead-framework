@@ -1,7 +1,8 @@
 ﻿using System.Text;
 using Bighead.Core.Generate;
+using Bighead.Csv;
 
-namespace Bighead.Csv
+namespace Bighead.Editor.Csv
 {
     public class RecordAllLoadingFileHandler : LazyLoadingFileHandler
     {

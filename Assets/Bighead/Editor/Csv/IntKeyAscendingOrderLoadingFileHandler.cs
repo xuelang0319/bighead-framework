@@ -1,8 +1,9 @@
 ﻿using System.Text;
 using Bighead.Core.Generate;
 using Bighead.Core.Utility;
+using Bighead.Csv;
 
-namespace Bighead.Csv
+namespace Bighead.Editor.Csv
 {
     public class IntKeyAscendingOrderLoadingFileHandler : LazyLoadingFileHandler
     {

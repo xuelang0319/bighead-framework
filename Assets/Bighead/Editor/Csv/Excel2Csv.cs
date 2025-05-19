@@ -15,10 +15,11 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using Bighead.Core.Utility;
+using Bighead.Csv;
 using Excel;
 using UnityEditor;
 
-namespace Bighead.Csv
+namespace Bighead.Editor.Csv
 {
     public static partial class Excel2Csv
     {

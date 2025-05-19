@@ -4,9 +4,10 @@ using System.IO;
 using System.Text;
 using Bighead.Core.Generate;
 using Bighead.Core.Utility;
+using Bighead.Csv;
 using UnityEngine;
 
-namespace Bighead.Csv
+namespace Bighead.Editor.Csv
 {
     /// <summary>
     /// 饥饿模式读取
