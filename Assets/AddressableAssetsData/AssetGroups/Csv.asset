@@ -12,11 +12,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: bbb281ee3bf0b054c82ac2347e9e782c, type: 3}
   m_Name: Csv
   m_EditorClassIdentifier: 
-  m_GroupName: Packed Assets
+  m_GroupName: Csv
   m_Data:
     m_SerializedData: []
   m_GUID: f9230f45a73ab5641bf1cdf0e9078441
-  m_SerializeEntries: []
+  m_SerializeEntries:
+  - m_GUID: 546fe0ce63925fd4ba7f21ad7b3a6bfd
+    m_Address: Assets/GenerateCsv/Csv
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Csv
+    FlaggedDuringContentUpdateRestriction: 0
   m_ReadOnly: 0
   m_Settings: {fileID: 11400000, guid: b0fad835ff29cf941a12ef9cb066eeac, type: 2}
   m_SchemaSet:
