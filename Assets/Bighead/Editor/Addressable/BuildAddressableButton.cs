@@ -1,10 +1,10 @@
-﻿namespace Bighead.Editor.Csv
+﻿namespace Bighead
 {
-    public class GenerateCsvButton : IToolbarButton
+    public class BuildAddressableButton : IToolbarButton
     {
         public void OnClick()
         {
-            Excel2Csv.Generate();
+            AddressableManager.BuildAddressableForAllPlatforms();
         }
 
         public bool IsIcon()
@@ -14,12 +14,12 @@
 
         public string Name()
         {
-            return "生成\r\n表格";
+            return "打包\r\n资源";
         }
 
         public int Sort()
         {
-            return 200;
+            return 300;
         }
     }
 }
