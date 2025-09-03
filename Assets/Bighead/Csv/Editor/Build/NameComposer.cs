@@ -50,6 +50,14 @@ namespace Bighead.Csv
                 sb.Append(char.IsLetterOrDigit(ch) ? ch : '_');
             return sb.ToString();
         }
+        
+        public static void SplitKey(string key, out string excel, out string sheet)
+        {
+            if (string.IsNullOrEmpty(key)) { excel = ""; sheet = "Sheet1"; return; }
+            var i = key.IndexOf('$');
+            if (i < 0) { excel = key; sheet = "Sheet1"; }
+            else { excel = key.Substring(0, i); sheet = key.Substring(i + 1); }
+        }
     }
 }
 #endif
