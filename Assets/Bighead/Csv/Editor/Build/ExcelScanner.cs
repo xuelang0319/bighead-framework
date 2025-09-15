@@ -36,8 +36,7 @@ namespace Bighead.Csv
             if (string.IsNullOrEmpty(excelFolderAbs) || !Directory.Exists(excelFolderAbs)) return dict;
 
             var files = Directory.GetFiles(excelFolderAbs, "*", SearchOption.AllDirectories)
-                .Where(p => p.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase) ||
-                            p.EndsWith(".xls", StringComparison.OrdinalIgnoreCase))
+                .Where(p => p.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase) || p.EndsWith(".xls", StringComparison.OrdinalIgnoreCase))
                 .Where(p => !Path.GetFileName(p).StartsWith("~$"))
                 .ToArray();
 
@@ -111,15 +110,6 @@ namespace Bighead.Csv
                     cell = cell.Replace("\r\n", "\n").Replace("\r", "\n");
                     outRow.Add(cell);
                     if (allEmpty && !string.IsNullOrWhiteSpace(cell)) allEmpty = false;
-                    
-                    // ★ 调试：只打印疑似问题的那一行（例如第三行：ri == 2）
-                    if (ri == 2) // 你的数据行索引按实际调整
-                    {
-                        var dbg = new System.Text.StringBuilder();
-                        for (int i = 0; i < outRow.Count; i++)
-                            dbg.Append('[').Append(i).Append("]='").Append(outRow[i].Replace("\n","\\n")).Append("' ");
-                        UnityEngine.Debug.Log($"[Scan-Debug]: R{ri+1} -> {dbg}");
-                    }
                 }
 
                 if (allEmpty) continue;
