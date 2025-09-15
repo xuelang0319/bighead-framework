@@ -21,6 +21,7 @@ namespace Bighead.Csv
         public int Rows;
         public int Cols;
         public string MD5;
+        public string SchemaSignature;
     }
 
     public sealed class ExcelScanner : IExcelScanner
@@ -59,12 +60,19 @@ namespace Bighead.Csv
 
                     var list2D = AnalysisTable(table.Rows, table.Columns, out var effCols, out var effRows);
                     if (effCols == 0 || effRows == 0) continue;
+                    
                     var csv = ToCsvRfc4180(list2D);
                     var md5 = Md5Utf8(csv);
+                    var schemaSig = Sha1Utf8(GetFirstThreeLines(csv)); // 新增
 
                     var key = excelName + "$" + sheet;
                     dict[key] = csv;
-                    metas[key] = new TableMeta { Rows = effRows, Cols = effCols, MD5 = md5 };
+                    metas[key] = new TableMeta {
+                        Rows = effRows,
+                        Cols = effCols,
+                        MD5 = md5,
+                        SchemaSignature = schemaSig // 新增
+                    };
                 }
             }
 
@@ -150,6 +158,24 @@ namespace Bighead.Csv
             var sb = new StringBuilder(hash.Length * 2);
             for (int i = 0; i < hash.Length; i++) sb.Append(hash[i].ToString("x2"));
             return sb.ToString();
+        }
+        
+        private static string GetFirstThreeLines(string csv)
+        {
+            var lines = (csv ?? string.Empty).Split('\n');
+            var sb = new System.Text.StringBuilder();
+            for (int i = 0; i < Math.Min(3, lines.Length); i++)
+                sb.Append(lines[i]).Append('\n');
+            return sb.ToString();
+        }
+
+        private static string Sha1Utf8(string s)
+        {
+            using var sha1 = System.Security.Cryptography.SHA1.Create();
+            var hash = sha1.ComputeHash(System.Text.Encoding.UTF8.GetBytes(s ?? string.Empty));
+            var sb = new System.Text.StringBuilder(hash.Length * 2);
+            foreach (var b in hash) sb.Append(b.ToString("x2"));
+            return "sha1:" + sb.ToString();
         }
     }
 }

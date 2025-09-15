@@ -103,6 +103,9 @@ namespace Bighead.Csv
 
         // CSV 始终明文；仅可选 BOM
         public bool CsvUtf8WithBom = false;
+        
+        // 全局版本号
+        public string GlobalVersion = "1.0.0.0";
 
         [Header("按表覆写（可选）")]
         public List<TableOverride> Overrides = new();
