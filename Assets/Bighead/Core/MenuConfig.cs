@@ -15,7 +15,7 @@ namespace Bighead.Core
         /// <summary>
         /// 整包版本号
         /// </summary>
-        public string Version; // 使用 VersionNumber.ToString() 存储
+        public string Version;
 
         /// <summary>
         /// 菜单生成时间，ISO8601 格式
@@ -23,9 +23,9 @@ namespace Bighead.Core
         public string Timestamp;
 
         /// <summary>
-        /// 模块清单：模块名 -> 模块信息
+        /// 模块列表
         /// </summary>
-        public Dictionary<string, ModuleInfo> Modules = new();
+        public List<ModuleInfo> Modules = new();
     }
 
     /// <summary>
@@ -35,9 +35,14 @@ namespace Bighead.Core
     public class ModuleInfo
     {
         /// <summary>
+        /// 模块名
+        /// </summary>
+        public string Name;
+
+        /// <summary>
         /// 模块自身的版本号
         /// </summary>
-        public string Version; // 由模块接口提供
+        public string Version;
     }
     
     /// <summary>
