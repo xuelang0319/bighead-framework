@@ -22,5 +22,17 @@ namespace Bighead.Core.Upzy
             yield return new ModuleInfo { Name = "Core", Version = "1.0.0.0" };
             yield return new ModuleInfo { Name = "Battle", Version = "1.2.0.0" };
         }
+        
+        [MenuItem("Tools/Build Menu.json (Patch)")]
+        private static void BuildPatch()
+        {
+            MenuBuilder.BuildAndSave("Assets/StreamingAssets/Menu.json", CollectModules, MenuBuilder.VersionBumpLevel.Patch);
+        }
+
+        [MenuItem("Tools/Build Menu.json (Feature)")]
+        private static void BuildFeature()
+        {
+            MenuBuilder.BuildAndSave("Assets/StreamingAssets/Menu.json", CollectModules, MenuBuilder.VersionBumpLevel.Feature);
+        }
     }
 }
