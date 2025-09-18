@@ -1,31 +1,14 @@
-﻿using System;
+﻿/*using System;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
+using Bighead.Upzy;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.Networking;
 
 namespace Bighead.Core.Upzy
 {
-    [Serializable]
-    public class ModuleConfig
-    {
-        public string moduleName;
-        public ConfigVersion version;
-
-        public string hash; // 模块整体哈希（所有文件拼接后计算）
-        public ModuleFile[] files; // 模块文件列表，用于精确校验
-
-        [Serializable]
-        public class ModuleFile
-        {
-            public string fileName; // 相对路径
-            public string hash; // 单文件哈希
-            public long size; // 文件大小（字节）
-        }
-    }
-
     public static class UpzyUpdater
     {
         /// <summary>
@@ -235,4 +218,4 @@ namespace Bighead.Core.Upzy
             return BitConverter.ToString(hashBytes).Replace("-", "").ToLowerInvariant();
         }
     }
-}
+}*/

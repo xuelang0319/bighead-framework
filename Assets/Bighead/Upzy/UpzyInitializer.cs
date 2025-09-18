@@ -1,7 +1,8 @@
-﻿// UpzyInitializer.cs  (依赖: Cysharp.Threading.Tasks, UnityWebRequest, JsonUtility 或你自定义解码)
+﻿/*// UpzyInitializer.cs  (依赖: Cysharp.Threading.Tasks, UnityWebRequest, JsonUtility 或你自定义解码)
 
 using System;
 using System.IO;
+using Bighead.Upzy;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.Networking;
@@ -92,4 +93,4 @@ namespace Bighead.Core.Upzy
             return req.result == UnityWebRequest.Result.Success ? req.downloadHandler.data : null;
         }
     }
-}
+}*/
