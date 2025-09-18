@@ -1,87 +1,95 @@
-﻿using System.IO;
+﻿// UpzyInitializer.cs  (依赖: Cysharp.Threading.Tasks, UnityWebRequest, JsonUtility 或你自定义解码)
+
+using System;
+using System.IO;
+using Cysharp.Threading.Tasks;
 using UnityEngine;
+using UnityEngine.Networking;
 
 namespace Bighead.Core.Upzy
 {
-    public static class UpzyInitializer
+    public interface IBdCodec
     {
-        private static readonly string UpzyRoot = Path.Combine(Application.persistentDataPath, "Upzy");
-        private static readonly string CurrentDir = Path.Combine(UpzyRoot, "current");
-        private static readonly string PreviousDir = Path.Combine(UpzyRoot, "previous");
-        private static readonly string StagingDir = Path.Combine(UpzyRoot, "staging");
-
-        public static void Initialize()
-        {
-            string builtinMenuPath = Path.Combine(Application.streamingAssetsPath, "FactoryMenu.bd");
-
-            // 1. 首装/升级判断
-            string localVersionPath =
-                Path.Combine(UpzyRoot, "local_version.txt");
-            string builtinVersion = ReadVersionFromMenu(builtinMenuPath);
-            string localVersion = File.Exists(localVersionPath) ? File.ReadAllText(localVersionPath) : "";
-
-            if (!Directory.Exists(CurrentDir) || CompareVersion(builtinVersion, localVersion) > 0)
-            {
-                // 整包升级或首次运行，清空 Upzy
-                if (Directory.Exists(UpzyRoot))
-                    Directory.Delete(UpzyRoot, true);
-
-                Directory.CreateDirectory(CurrentDir);
-
-                // 2. 灌入 FactoryMenu → Working Menu
-                File.Copy(builtinMenuPath, Path.Combine(CurrentDir, "Menu.bd"));
-
-                // 3. 记录当前版本号
-                File.WriteAllText(localVersionPath, builtinVersion);
-
-                Debug.Log($"Upzy 初始化完成：版本 {builtinVersion}");
-            }
-            else
-            {
-                Debug.Log($"Upzy 保留：版本 {localVersion}");
-            }
-        }
-
-        private static string ReadVersionFromMenu(string menuPath)
-        {
-            // 简化处理，真实实现应解密 + 解析 JSON
-            string json = File.ReadAllText(menuPath);
-            var menu = JsonUtility.FromJson<WorkingMenu>(json);
-            return menu.meta.version;
-        }
-
-        private static int CompareVersion(string v1, string v2)
-        {
-            var p1 = v1.Split('.');
-            var p2 = v2.Split('.');
-            for (int i = 0; i < Mathf.Max(p1.Length, p2.Length); i++)
-            {
-                int a = i < p1.Length ? int.Parse(p1[i]) : 0;
-                int b = i < p2.Length ? int.Parse(p2[i]) : 0;
-                if (a != b) return a.CompareTo(b);
-            }
-            return 0;
-        }
+        // 将 .bd 原始字节解码为对象（内部做解密+JSON反序列化）
+        T Decode<T>(byte[] data);
     }
 
-    [System.Serializable]
+    [Serializable]
     public class WorkingMenu
     {
         public Meta meta;
         public ModuleEntry[] modules;
     }
 
-    [System.Serializable]
+    [Serializable]
     public class Meta
     {
-        public string version;
+        public ConfigVersion version;
         public string generatedAt;
     }
 
-    [System.Serializable]
+    [Serializable]
     public class ModuleEntry
     {
         public string name;
-        public string config;
+        public string config; // 相对路径，如 "Modules/A/a.bd"
+    }
+
+    public static class UpzyInitializer
+    {
+        public static async UniTask InitializeAsync(IBdCodec codec, UpzyConfig config)
+        {
+            // 读取内置 FactoryMenu
+            var builtinPath = Path.Combine(Application.streamingAssetsPath, config.builtinMenuPath);
+            var factoryBytes = await ReadStreamingBytesAsync(builtinPath);
+            if (factoryBytes == null || factoryBytes.Length == 0)
+                throw new FileNotFoundException($"缺少内置菜单: {builtinPath}");
+
+            var factoryMenu = codec.Decode<WorkingMenu>(factoryBytes);
+
+            // 读取当前菜单
+            WorkingMenu currentMenu = null;
+            if (File.Exists(config.MenuFile))
+                currentMenu = codec.Decode<WorkingMenu>(File.ReadAllBytes(config.MenuFile));
+
+            bool needHydrate = currentMenu == null ||
+                               (factoryMenu.meta.version > currentMenu.meta.version);
+
+            if (!needHydrate)
+            {
+                Debug.Log($"[UpzyInit] 保留当前版本 v{currentMenu.meta.version}");
+                return;
+            }
+
+            if (Directory.Exists(config.Root)) Directory.Delete(config.Root, true);
+            Directory.CreateDirectory(config.CurrentDir);
+
+            // 拷贝菜单
+            File.WriteAllBytes(config.MenuFile, factoryBytes);
+
+            // 深拷贝模块配置
+            foreach (var m in factoryMenu.modules)
+            {
+                var dstAbs = config.GetModulePath(m.config);
+                var dir = Path.GetDirectoryName(dstAbs);
+                if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
+
+                var srcAbs = Path.Combine(Application.streamingAssetsPath, m.config);
+                var moduleBytes = await ReadStreamingBytesAsync(srcAbs);
+                if (moduleBytes == null || moduleBytes.Length == 0)
+                    throw new FileNotFoundException($"缺少内置模块配置: {m.config}");
+
+                File.WriteAllBytes(dstAbs, moduleBytes);
+            }
+
+            Debug.Log($"[UpzyInit] 已灌入 WorkingMenu v{factoryMenu.meta.version}");
+        }
+
+        private static async UniTask<byte[]> ReadStreamingBytesAsync(string absPath)
+        {
+            using var req = UnityWebRequest.Get(absPath);
+            await req.SendWebRequest();
+            return req.result == UnityWebRequest.Result.Success ? req.downloadHandler.data : null;
+        }
     }
 }

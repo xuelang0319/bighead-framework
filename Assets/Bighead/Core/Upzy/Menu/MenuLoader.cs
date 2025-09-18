@@ -3,7 +3,7 @@ using System.IO;
 using System.Text;
 using UnityEngine;
 
-namespace Bighead.Core
+namespace Bighead.Core.Upzy
 {
     /// <summary>
     /// Menu.json 读写工具，基于 Unity JsonUtility

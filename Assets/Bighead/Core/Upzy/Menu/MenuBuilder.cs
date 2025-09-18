@@ -1,133 +1,78 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
+﻿using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
 using UnityEngine;
 
 namespace Bighead.Core.Upzy
 {
-    /// <summary>
-    /// 用于在编辑器中构建和比较 Menu.json
-    /// </summary>
     public static class MenuBuilder
     {
-        public static void BuildAndSave(string outputPath, Func<IEnumerable<ModuleInfo>> collectModules,
-            VersionBumpLevel bumpLevel = VersionBumpLevel.Patch)
+        public static void BuildMenu(UpzyConfig config, ModuleConfig[] allModules, ConfigVersion buildVersion)
         {
-            if (collectModules == null)
-                throw new ArgumentNullException(nameof(collectModules));
+            if (Directory.Exists(config.CurrentDir)) Directory.Delete(config.CurrentDir, true);
+            Directory.CreateDirectory(config.CurrentDir);
+            Directory.CreateDirectory(config.ModulesDir);
 
-            // 先收集新模块列表
-            var newModules = new List<ModuleInfo>(collectModules());
-
-            MenuConfig? oldConfig = null;
-            if (File.Exists(outputPath))
+            var menu = new WorkingMenu
             {
-                try
+                meta = new Meta
                 {
-                    oldConfig = MenuLoader.Load(outputPath);
-                }
-                catch (Exception e)
-                {
-                    Debug.LogWarning($"读取旧 Menu.json 失败，将覆盖生成：{e.Message}");
-                }
-            }
-
-            // 如果有旧版本，先比较模块是否有变化
-            if (oldConfig != null)
-            {
-                var changedModules = GetChangedModules(oldConfig, newModules);
-                if (changedModules.Count == 0)
-                {
-                    Debug.Log("没有模块发生变化，跳过构建。");
-                    return;
-                }
-
-                // 递增版本号
-                var newVersion = BumpVersion(oldConfig.Version, bumpLevel);
-
-                Debug.Log($"共有 {changedModules.Count} 个模块发生变化：");
-                foreach (var module in changedModules)
-                    Debug.Log($" - {module.Name} -> {module.Version}");
-
-                SaveMenu(outputPath, newModules, newVersion);
-            }
-            else
-            {
-                // 没有旧版本，从初始版本开始
-                SaveMenu(outputPath, newModules, "1.0.0.0");
-            }
-        }
-
-        private static void SaveMenu(string path, List<ModuleInfo> modules, string version)
-        {
-            var newConfig = new MenuConfig
-            {
-                Version = version,
-                Timestamp = DateTime.UtcNow.ToString("o"),
-                Modules = modules
+                    version = buildVersion,
+                    generatedAt = System.DateTime.UtcNow.ToString("O")
+                },
+                modules = new ModuleEntry[allModules.Length]
             };
 
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            MenuLoader.Save(path, newConfig);
-            Debug.Log($"Menu.json 构建完成 -> {path}");
-        }
-
-        /// <summary>
-        /// 根据变更等级递增版本号
-        /// </summary>
-        private static string BumpVersion(string oldVersion, VersionBumpLevel level)
-        {
-            var v = VersionNumber.Parse(oldVersion);
-
-            switch (level)
+            foreach (var (module, i) in allModules.Select((m, i) => (m, i)))
             {
-                case VersionBumpLevel.Major:
-                    v.Major++;
-                    v.Module = v.Feature = v.Patch = 0;
-                    break;
-                case VersionBumpLevel.Module:
-                    v.Module++;
-                    v.Feature = v.Patch = 0;
-                    break;
-                case VersionBumpLevel.Feature:
-                    v.Feature++;
-                    v.Patch = 0;
-                    break;
-                default:
-                    v.Patch++;
-                    break;
-            }
+                // 1. 收集模块文件信息
+                string moduleDir = Path.Combine("Assets/Modules", module.moduleName); // 需按你的项目调整
+                var files = Directory.Exists(moduleDir)
+                    ? Directory.GetFiles(moduleDir, "*", SearchOption.AllDirectories)
+                    : new string[0];
 
-            return v.ToString();
-        }
-
-        private static List<ModuleInfo> GetChangedModules(MenuConfig oldConfig, List<ModuleInfo> newModules)
-        {
-            var result = new List<ModuleInfo>();
-            var oldDict = oldConfig.Modules.ToDictionary(m => m.Name, m => m);
-
-            foreach (var newModule in newModules)
-            {
-                if (!oldDict.TryGetValue(newModule.Name, out var oldModule) ||
-                    oldModule.Version != newModule.Version)
+                module.files = files.Select(f => new ModuleConfig.ModuleFile
                 {
-                    result.Add(newModule);
-                }
+                    fileName = Path.GetRelativePath(moduleDir, f).Replace("\\", "/"),
+                    hash = ComputeFileHash(f),
+                    size = new FileInfo(f).Length
+                }).ToArray();
+
+                // 2. 计算模块整体哈希
+                module.hash = ComputeModuleHash(module.files);
+
+                // 3. 序列化保存
+                string moduleFileName = $"{module.moduleName}.bd";
+                string relPath = Path.Combine(config.modulesFolder, moduleFileName);
+                string dst = Path.Combine(config.CurrentDir, relPath);
+                Directory.CreateDirectory(Path.GetDirectoryName(dst)!);
+
+                File.WriteAllText(dst, JsonUtility.ToJson(module, true));
+
+                menu.modules[i] = new ModuleEntry { name = module.moduleName, config = relPath };
             }
 
-            return result;
+            // 写入 Menu
+            File.WriteAllText(config.MenuFile, JsonUtility.ToJson(menu, true));
+
+            Debug.Log($"[MenuBuilder] Menu v{buildVersion} 生成完成，模块数={allModules.Length}");
         }
 
-        /// <summary>
-        /// 版本号递增等级
-        /// </summary>
-        public enum VersionBumpLevel
+        private static string ComputeFileHash(string filePath)
         {
-            Patch,
-            Feature,
-            Module,
-            Major
+            using var stream = File.OpenRead(filePath);
+            using var sha256 = SHA256.Create();
+            var hashBytes = sha256.ComputeHash(stream);
+            return System.BitConverter.ToString(hashBytes).Replace("-", "").ToLower();
+        }
+
+        private static string ComputeModuleHash(ModuleConfig.ModuleFile[] files)
+        {
+            // 按文件名排序再拼接哈希，保证跨平台一致
+            var concat = string.Join("", files.OrderBy(f => f.fileName).Select(f => f.hash));
+            using var sha256 = SHA256.Create();
+            var hashBytes = sha256.ComputeHash(System.Text.Encoding.UTF8.GetBytes(concat));
+            return System.BitConverter.ToString(hashBytes).Replace("-", "").ToLower();
         }
     }
 }

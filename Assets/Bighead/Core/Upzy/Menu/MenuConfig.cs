@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace Bighead.Core
+namespace Bighead.Core.Upzy
 {
     /// <summary>
     /// Menu.json 顶层结构

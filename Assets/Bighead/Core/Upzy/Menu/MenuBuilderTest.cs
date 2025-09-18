@@ -1,38 +1,25 @@
-﻿using System.Collections.Generic;
-using UnityEditor;
+﻿using UnityEditor;
 
 namespace Bighead.Core.Upzy
 {
-    public static class MenuBuilderTest
+    public class MenuBuildExample
     {
-        [MenuItem("Tools/Test MenuBuilder")]
-        public static void TestBuildMenu()
+#if UNITY_EDITOR
+        [MenuItem("Upzy/Build Menu")]
+        public static void Build()
         {
-            // 输出路径（放 StreamingAssets 方便运行时直接读取）
-            const string outputPath = "Assets/StreamingAssets/Menu.json";
+            // 读取 UpzyConfig 资源
+            var config = AssetDatabase.LoadAssetAtPath<UpzyConfig>("Assets/Configs/UpzyConfig.asset");
 
-            // 调用 MenuBuilder
-            MenuBuilder.BuildAndSave(outputPath, CollectModules);
-        }
+            // 模拟生成几个模块
+            var modules = new[]
+            {
+                new ModuleConfig { moduleName = "A", version = new ConfigVersion(1,0,0,1) },
+                new ModuleConfig { moduleName = "B", version = new ConfigVersion(1,0,0,0) }
+            };
 
-        // 模拟收集模块
-        private static IEnumerable<ModuleInfo> CollectModules()
-        {
-            // 模拟两个模块，第二次运行时可以手动改 Version 测试对比功能
-            yield return new ModuleInfo { Name = "Core", Version = "1.0.0.0" };
-            yield return new ModuleInfo { Name = "Battle", Version = "1.2.0.0" };
+            MenuBuilder.BuildMenu(config, modules, new ConfigVersion(1, 0, 0, 0));
         }
-        
-        [MenuItem("Tools/Build Menu.json (Patch)")]
-        private static void BuildPatch()
-        {
-            MenuBuilder.BuildAndSave("Assets/StreamingAssets/Menu.json", CollectModules, MenuBuilder.VersionBumpLevel.Patch);
-        }
-
-        [MenuItem("Tools/Build Menu.json (Feature)")]
-        private static void BuildFeature()
-        {
-            MenuBuilder.BuildAndSave("Assets/StreamingAssets/Menu.json", CollectModules, MenuBuilder.VersionBumpLevel.Feature);
-        }
+#endif
     }
 }
