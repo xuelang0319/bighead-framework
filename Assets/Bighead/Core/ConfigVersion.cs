@@ -36,4 +36,13 @@ namespace Bighead.Core
         public static bool operator >=(ConfigVersion a, ConfigVersion b) => a.CompareTo(b) >= 0;
         public static bool operator <=(ConfigVersion a, ConfigVersion b) => a.CompareTo(b) <= 0;
     }
+    
+    public enum ChangeLevel
+    {
+        None,   // 没有变更
+        Patch,  // 热更位
+        Feature,// 新功能
+        Minor,  // 内容更新
+        Major   // 大版本
+    }
 }

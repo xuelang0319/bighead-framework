@@ -1,55 +1,76 @@
 ﻿#if UNITY_EDITOR
-using Bighead.Upzy;
 using UnityEditor;
 using UnityEngine;
 
-static class UpzyConfigProvider
+namespace Bighead.Upzy
 {
-    private const string kPath = "Project/Bighead Upzy";
-
-    [SettingsProvider]
-    public static SettingsProvider CreateProvider()
+    static class UpzyConfigProvider
     {
-        return new SettingsProvider(kPath, SettingsScope.Project)
+        private const string kPath = "Project/Bighead Upzy";
+        private const string kAssetPath = "Assets/Bighead/Configs/UpzySetting.asset";
+
+        [SettingsProvider]
+        public static SettingsProvider CreateProvider()
         {
-            label = "Bighead Upzy",
-            guiHandler = (searchContext) =>
+            return new SettingsProvider(kPath, SettingsScope.Project)
             {
-                var setting = GetSetting();
-                if (setting == null)
-                {
-                    if (GUILayout.Button("创建 UpzySetting"))
-                        CreateSetting();
-                    return;
-                }
+                label = "Bighead Upzy",
+                guiHandler = _ => DrawGUI()
+            };
+        }
 
-                var so = new SerializedObject(setting);
-                so.Update();
-
-                EditorGUILayout.PropertyField(so.FindProperty("rootFolder"));
-                EditorGUILayout.PropertyField(so.FindProperty("currentFolder"));
-                EditorGUILayout.PropertyField(so.FindProperty("backupFolder"));
-                EditorGUILayout.PropertyField(so.FindProperty("stagingFolder"));
-                EditorGUILayout.PropertyField(so.FindProperty("modulesFolder"));
-                EditorGUILayout.PropertyField(so.FindProperty("registeredModules"), true);
-
-                so.ApplyModifiedProperties();
-            }
-        };
-    }
-    
-    private static UpzySetting GetSetting()
-    {
-        return AssetDatabase.LoadAssetAtPath<UpzySetting>("Assets/Bighead/Configs/UpzySetting.asset");
-    }
-
-    private static void CreateSetting()
-    {
-        const string folder = "Assets/Bighead/Configs";
-        if (!AssetDatabase.IsValidFolder(folder))
+        private static void DrawGUI()
         {
-            string[] parts = folder.Split('/');
-            string path = "Assets";
+            var setting = GetOrCreateSettingAsset();
+            var so = new SerializedObject(setting);
+            so.Update();
+
+            EditorGUILayout.LabelField("基础路径配置", EditorStyles.boldLabel);
+            DrawFolderField(so.FindProperty("rootFolder"), "热更根目录");
+            DrawFolderField(so.FindProperty("currentFolder"), "当前版本目录");
+            DrawFolderField(so.FindProperty("backupFolder"), "备份目录");
+            DrawFolderField(so.FindProperty("stagingFolder"), "中间下载目录");
+            DrawFolderField(so.FindProperty("modulesFolder"), "模块目录");
+
+            so.ApplyModifiedProperties();
+        }
+
+        private static void DrawFolderField(SerializedProperty prop, string label)
+        {
+            EditorGUILayout.BeginHorizontal();
+            prop.stringValue = EditorGUILayout.TextField(label, prop.stringValue);
+            if (GUILayout.Button("...", GUILayout.MaxWidth(50)))
+            {
+                string selected = EditorUtility.OpenFolderPanel("选择路径", "Assets", "");
+                if (!string.IsNullOrEmpty(selected))
+                {
+                    if (selected.StartsWith(Application.dataPath))
+                    {
+                        // 转换为相对路径
+                        selected = "Assets" + selected.Substring(Application.dataPath.Length);
+                    }
+                    prop.stringValue = selected;
+                }
+            }
+            EditorGUILayout.EndHorizontal();
+        }
+
+        private static UpzySetting GetOrCreateSettingAsset()
+        {
+            var setting = AssetDatabase.LoadAssetAtPath<UpzySetting>(kAssetPath);
+            if (setting != null) return setting;
+
+            EnsureFolder("Assets/Bighead/Configs");
+            setting = ScriptableObject.CreateInstance<UpzySetting>();
+            AssetDatabase.CreateAsset(setting, kAssetPath);
+            AssetDatabase.SaveAssets();
+            return setting;
+        }
+
+        private static void EnsureFolder(string folder)
+        {
+            var parts = folder.Split('/');
+            string path = parts[0];
             for (int i = 1; i < parts.Length; i++)
             {
                 string next = $"{path}/{parts[i]}";
@@ -58,12 +79,6 @@ static class UpzyConfigProvider
                 path = next;
             }
         }
-
-        var setting = ScriptableObject.CreateInstance<UpzySetting>();
-        string assetPath = $"{folder}/UpzySetting.asset";
-        AssetDatabase.CreateAsset(setting, assetPath);
-        AssetDatabase.SaveAssets();
-        Selection.activeObject = setting;
     }
 }
 #endif
