@@ -12,9 +12,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 513a42d0cd6c4decb855044026c2df23, type: 3}
   m_Name: UpzySetting
   m_EditorClassIdentifier: 
-  rootFolder: Upzy
-  currentFolder: current
-  backupFolder: backup
-  stagingFolder: staging
-  modulesFolder: Modules
-  registeredModules: []
+  rootFolder: Assets/UpzyGenerated
+  currentRel: current
+  backupRel: backup
+  stagingRel: staging
+  modulesRel: Modules
+  registeredModules:
+  - configSO: {fileID: 11400000, guid: f4e05a6ea0dcce74a9f23b799b763e27, type: 2}

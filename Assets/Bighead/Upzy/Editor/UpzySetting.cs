@@ -1,39 +1,35 @@
-﻿using System;
-using Bighead.Core;
-using Bighead.Core.Upzy;
+﻿using System.Collections.Generic;
+using System.IO;
+using Bighead.Upzy.Core;
 using UnityEngine;
 
-namespace Bighead.Upzy
+namespace Bighead.Upzy.Editor
 {
     [CreateAssetMenu(fileName = "UpzySetting", menuName = "Bighead/Upzy Setting", order = 0)]
     public class UpzySetting : ScriptableObject
     {
-        [Header("基础路径")]
-        public string rootFolder = "Upzy";
-        public string currentFolder = "current";
-        public string backupFolder = "backup";
-        public string stagingFolder = "staging";
-        public string modulesFolder = "Modules";
+        [Header("生成产物根目录（建议放在 Assets/UpzyGenerated）")]
+        public string rootFolder = "Assets/UpzyGenerated";
 
-        [Header("模块配置")]
-        public ModuleConfig[] registeredModules;
-    }
-    
-    [Serializable]
-    public class ModuleConfig
-    {
-        public string moduleName;
-        public ConfigVersion version;
+        [Header("相对路径配置")]
+        public string currentRel = "current";
+        public string backupRel  = "backup";
+        public string stagingRel = "staging";
+        public string modulesRel = "Modules";
 
-        public string hash; // 模块整体哈希（所有文件拼接后计算）
-        public ModuleFile[] files; // 模块文件列表，用于精确校验
+        [Header("已注册模块列表")]
+        public List<UpzyEntry> registeredModules = new List<UpzyEntry>();
 
-        [Serializable]
-        public class ModuleFile
+        // 统一计算绝对路径
+        public string CurrentAbs => Abs(currentRel);
+        public string BackupAbs  => Abs(backupRel);
+        public string StagingAbs => Abs(stagingRel);
+        public string ModulesAbs(string baseAbs) => Path.Combine(baseAbs, modulesRel);
+
+        private string Abs(string rel)
         {
-            public string fileName; // 相对路径
-            public string hash; // 单文件哈希
-            public long size; // 文件大小（字节）
+            string rootAbs = Path.GetFullPath(rootFolder.Replace("\\", "/"));
+            return Path.Combine(rootAbs, rel).Replace("\\", "/");
         }
     }
 }
