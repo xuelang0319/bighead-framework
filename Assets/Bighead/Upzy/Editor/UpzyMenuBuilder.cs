@@ -10,9 +10,11 @@ namespace Bighead.Upzy.Editor
 {
     public static class UpzyMenuBuilder
     {
-        /// <summary>构建单个模块：更新产物、递增版本号、写 current/*.bd</summary>
+        // =============== 公共入口 ===============
         public static void BuildModule(UpzySetting setting, UpzyModuleSO so)
         {
+            EnsureLatestDir(setting);
+
             var buildable = CreateBuildableFromConfigSO(so);
             if (buildable == null)
             {
@@ -20,45 +22,73 @@ namespace Bighead.Upzy.Editor
                 return;
             }
 
-            var result = buildable.Build(setting.ModulesAbs(setting.CurrentAbs));
-            if (result.changeLevel == ChangeLevel.None)
+            var result = buildable.Build(setting.ModulesAbs(setting.LatestAbs));
+
+            string lastBdPath = Path.Combine(setting.ModulesAbs(setting.LatestAbs), $"{so.name}.bd");
+            bool bdMissing = !File.Exists(lastBdPath);
+
+            if (result.changeLevel == ChangeLevel.None && !bdMissing)
             {
                 Debug.Log($"模块 {so.name} 无变化，跳过构建。");
                 return;
             }
 
-            if (HasChanged(setting, so, result))
+            // 递增版本
+            if (bdMissing || HasChanged(setting, so, result))
             {
-                so.version = IncrementVersion(so.version, result.changeLevel);
+                so.version = IncrementVersion(so.version, bdMissing ? ChangeLevel.Patch : result.changeLevel);
                 EditorUtility.SetDirty(so);
-                WriteModuleBd(setting, so, result);
-                Debug.Log($"模块 {so.name} 构建完成，新版本号：{so.version}");
             }
-            else
-            {
-                Debug.Log($"模块 {so.name} 构建产物与上次一致，未更新版本号。");
-            }
+
+            WriteModuleBd(setting, so, result, setting.LatestAbs);
+            Debug.Log($"[Upzy] 模块 {so.name} 构建完成，新版本号：{so.version}");
+            WriteMenuBd(setting, AggregateBuiltinVersion(), setting.LatestAbs);
         }
 
-        /// <summary>构建所有模块</summary>
         public static void BuildAll(UpzySetting setting)
         {
+            EnsureLatestDir(setting);
             foreach (var entry in setting.registeredModules)
             {
                 if (entry.configSO is UpzyModuleSO so)
-                    BuildModule(setting, so);   // ✅ 强转后再传入
+                    BuildModule(setting, so);
             }
+
+            WriteMenuBd(setting, AggregateBuiltinVersion(), setting.LatestAbs);
+            Debug.Log("[Upzy] 已生成 latest/Menu.bd");
+        }
+        
+        private static ConfigVersion AggregateBuiltinVersion()
+        {
+            var v = ReadBuiltinVersionXYZ();
+            v.patch = 0; // latest 只是预构建，W 在发版时递增
+            return v;
         }
 
-        /// <summary>发版：比对模块版本和 builtin 版本，决定是否生成新 Menu.bd</summary>
         public static void Publish(UpzySetting setting, bool isFullBuild)
         {
-            var builtinVersion = ReadBuiltinVersionXYZ();
-            var lastMenu = LoadLastMenu(setting);
-            var needWrite = false;
+            EnsureLatestDir(setting);
 
-            // 1. builtin X.Y.Z 变了 → 必须重写 Menu
-            if (lastMenu == null || lastMenu.meta.version.major != builtinVersion.major ||
+            // 检查 latest 下所有模块是否存在 .bd
+            foreach (var entry in setting.registeredModules)
+            {
+                if (entry.configSO is UpzyModuleSO so)
+                {
+                    string bdPath = Path.Combine(setting.ModulesAbs(setting.LatestAbs), $"{so.name}.bd");
+                    if (!File.Exists(bdPath))
+                    {
+                        Debug.LogError($"模块 {so.name} 缺少 .bd，请先构建再发版！");
+                        return;
+                    }
+                }
+            }
+
+            var builtinVersion = ReadBuiltinVersionXYZ();
+            var lastMenu = LoadLastMenu(setting.ReleaseAbs);
+
+            bool needWrite = false;
+            if (lastMenu == null ||
+                lastMenu.meta.version.major != builtinVersion.major ||
                 lastMenu.meta.version.minor != builtinVersion.minor ||
                 lastMenu.meta.version.feature != builtinVersion.feature)
             {
@@ -66,8 +96,7 @@ namespace Bighead.Upzy.Editor
             }
             else
             {
-                // 2. 有任何模块版本号比 Menu 记录的更新 → 必须重写 Menu
-                var currentModules = LoadAllModules(setting);
+                var currentModules = LoadAllModules(setting.LatestAbs);
                 foreach (var m in currentModules)
                 {
                     var last = lastMenu.modules.FirstOrDefault(x => x.moduleName == m.moduleName);
@@ -81,20 +110,26 @@ namespace Bighead.Upzy.Editor
 
             if (!needWrite)
             {
-                Debug.Log("无模块变更，无需发版。");
+                Debug.Log("[Upzy] 无模块变更，无需发版。");
                 return;
             }
 
-            // 3. 更新 Menu 的 W
+            // 1️⃣ 备份 release → rollback
+            BackupRelease(setting);
+
+            // 2️⃣ 覆盖 release ← latest
+            if (Directory.Exists(setting.ReleaseAbs))
+                Directory.Delete(setting.ReleaseAbs, true);
+            FileUtil.CopyFileOrDirectory(setting.LatestAbs, setting.ReleaseAbs);
+
+            // 3️⃣ 更新 Menu.bd（写入 release）
             var newVersion = builtinVersion;
             newVersion.patch = isFullBuild ? 1 : (lastMenu?.meta.version.patch ?? 0) + 1;
+            WriteMenuBd(setting, newVersion, setting.ReleaseAbs);
 
-            WriteMenuBd(setting, newVersion);
-            Debug.Log($"已生成新 Menu.bd，版本号：{newVersion}");
+            Debug.Log($"[Upzy] 发布成功，release 版本号：{newVersion}");
         }
-
-        // --- 以下方法保持不变或简化实现 ---
-
+        
         public static UpzyBuildableBase CreateBuildableFromConfigSO(UpzyModuleSO so)
         {
             var typeName = so.GetType().Name.Replace("SO", "");
@@ -106,7 +141,6 @@ namespace Bighead.Upzy.Editor
             instance.SetConfig(so);
             return instance;
         }
-
         public static bool HasChanged(UpzySetting setting, UpzyModuleSO so, BuildResult result)
         {
             var lastBdPath = Path.Combine(GetModulesOutputRoot(setting), $"{so.name}.bd");
@@ -118,84 +152,134 @@ namespace Bighead.Upzy.Editor
             return result.aggregateHash != last.aggregateHash;
         }
 
-        private static string GetModulesOutputRoot(UpzySetting setting)
+        public static void RollbackRelease(UpzySetting setting)
         {
-            var dir = setting.ModulesAbs(setting.CurrentAbs);
-            Directory.CreateDirectory(dir);
-            return dir;
-        }
-
-        public static void WriteModuleBd(UpzySetting setting, UpzyModuleSO so, BuildResult result)
-        {
-            var dir = GetModulesOutputRoot(setting);
-            var bd = new ModuleBd
+            if (!Directory.Exists(setting.RollbackAbs))
             {
-                moduleName    = so.name,
-                version       = so.version,
+                Debug.LogError("[Upzy] 没有可回滚的版本！");
+                return;
+            }
+
+            if (Directory.Exists(setting.ReleaseAbs))
+                Directory.Delete(setting.ReleaseAbs, true);
+
+            FileUtil.CopyFileOrDirectory(setting.RollbackAbs, setting.ReleaseAbs);
+            Debug.Log("[Upzy] 已回滚到上一个发版版本。");
+        }
+
+        // =============== 内部工具方法 ===============
+        private static void EnsureLatestDir(UpzySetting setting)
+        {
+            if (!Directory.Exists(setting.LatestAbs))
+                Directory.CreateDirectory(setting.LatestAbs);
+            if (!Directory.Exists(setting.ModulesAbs(setting.LatestAbs)))
+                Directory.CreateDirectory(setting.ModulesAbs(setting.LatestAbs));
+        }
+
+        private static void BackupRelease(UpzySetting setting)
+        {
+            if (!Directory.Exists(setting.ReleaseAbs)) return;
+
+            if (Directory.Exists(setting.RollbackAbs))
+                Directory.Delete(setting.RollbackAbs, true);
+
+            FileUtil.CopyFileOrDirectory(setting.ReleaseAbs, setting.RollbackAbs);
+            Debug.Log("[Upzy] 已备份 release 到 rollback 目录。");
+        }
+
+        public static void WriteModuleBd(UpzySetting setting, UpzyModuleSO so, BuildResult result, string rootDir)
+        {
+            string dir = setting.ModulesAbs(rootDir);
+            Directory.CreateDirectory(dir);
+
+            // 清理旧文件
+            foreach (var file in Directory.GetFiles(dir, $"{so.name}*.bd"))
+                File.Delete(file);
+
+            string bdPath = Path.Combine(dir, $"{so.name}.bd");
+            File.WriteAllText(bdPath, JsonUtility.ToJson(new ModuleBd
+            {
+                moduleName = so.name,
+                version = so.version,
                 aggregateHash = result.aggregateHash,
-                entries       = result.entries
-            };
-            File.WriteAllText(Path.Combine(dir, $"{so.name}.bd"), JsonUtility.ToJson(bd, true));
+                entries = result.entries
+            }, true));
         }
 
-        private static UpzyMenu LoadLastMenu(UpzySetting setting)
+        private static ModuleBd[] LoadAllModules(string root)
         {
-            var path = Path.Combine(setting.CurrentAbs, "Menu.bd");
-            return File.Exists(path)
-                ? JsonUtility.FromJson<UpzyMenu>(File.ReadAllText(path))
-                : null;
-        }
-
-        private static UpzyMenu.ModuleInfo[] LoadAllModules(UpzySetting setting)
-        {
-            var dir = GetModulesOutputRoot(setting);
-            if (!Directory.Exists(dir)) return new UpzyMenu.ModuleInfo[0];
+            string dir = Path.Combine(root, "Modules");
+            if (!Directory.Exists(dir)) return new ModuleBd[0];
 
             return Directory.GetFiles(dir, "*.bd")
-                .Select(p =>
-                {
-                    var bd = JsonUtility.FromJson<ModuleBd>(File.ReadAllText(p));
-                    return new UpzyMenu.ModuleInfo
-                    {
-                        moduleName      = bd.moduleName,
-                        version         = bd.version,
-                        moduleBdRelPath = Path.GetFileName(p),
-                        aggregateHash   = bd.aggregateHash
-                    };
-                }).ToArray();
+                .Select(f => JsonUtility.FromJson<ModuleBd>(File.ReadAllText(f)))
+                .Where(m => m != null)
+                .ToArray();
         }
 
         private static ConfigVersion ReadBuiltinVersionXYZ()
         {
-            // 这里可以从 Application.streamingAssetsPath 读取内置 Menu 或版本号
-            return new ConfigVersion(1, 0, 0, 0); // 示例
+            try
+            {
+                string builtinMenu = Path.Combine(Application.streamingAssetsPath, "Menu.bd");
+                if (File.Exists(builtinMenu))
+                {
+                    var m = JsonUtility.FromJson<UpzyMenu>(File.ReadAllText(builtinMenu));
+                    if (m != null) return m.meta.version;
+                }
+            }
+            catch { }
+            return new ConfigVersion(1, 0, 0, 0);
         }
 
-        public static ConfigVersion IncrementVersion(ConfigVersion current, ChangeLevel level)
+        private static ConfigVersion IncrementVersion(ConfigVersion v, ChangeLevel level)
         {
             switch (level)
             {
-                case ChangeLevel.Major:   return new ConfigVersion(current.major + 1, 0, 0, 0);
-                case ChangeLevel.Minor:   return new ConfigVersion(current.major, current.minor + 1, 0, 0);
-                case ChangeLevel.Feature: return new ConfigVersion(current.major, current.minor, current.feature + 1, 0);
-                case ChangeLevel.Patch:   return new ConfigVersion(current.major, current.minor, current.feature, current.patch + 1);
-                default: return current;
+                case ChangeLevel.Major: v.major++; v.minor = v.feature = v.patch = 0; break;
+                case ChangeLevel.Minor: v.minor++; v.feature = v.patch = 0; break;
+                case ChangeLevel.Feature: v.feature++; v.patch = 0; break;
+                case ChangeLevel.Patch: v.patch++; break;
             }
+            return v;
         }
 
-        private static void WriteMenuBd(UpzySetting setting, ConfigVersion version)
+        private static string GetModulesOutputRoot(UpzySetting setting)
         {
+            string dir = setting.ModulesAbs(setting.LatestAbs);
+            Directory.CreateDirectory(dir);
+            return dir;
+        }
+
+        private static UpzyMenu LoadLastMenu(string root)
+        {
+            string path = Path.Combine(root, "Menu.bd");
+            if (!File.Exists(path)) return null;
+            return JsonUtility.FromJson<UpzyMenu>(File.ReadAllText(path));
+        }
+        
+        private static void WriteMenuBd(UpzySetting setting, ConfigVersion version, string rootDir)
+        {
+            string path = Path.Combine(rootDir, "Menu.bd");
+            Directory.CreateDirectory(rootDir);
+
             var menu = new UpzyMenu
             {
-                meta = new UpzyMenu.Meta
+                meta = new UpzyMenuMeta
                 {
-                    version     = version,
-                    generatedAt = System.DateTime.Now.ToString("O")
+                    version = version,
+                    generatedAt = System.DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")
                 },
-                modules = LoadAllModules(setting)
+                modules = setting.registeredModules
+                    .Where(e => e?.configSO != null)
+                    .Select(e => new ModuleInfo
+                    {
+                        moduleName = e.configSO.name,
+                        version = e.configSO.version
+                    }).ToArray()
             };
-            Directory.CreateDirectory(setting.CurrentAbs);
-            File.WriteAllText(Path.Combine(setting.CurrentAbs, "Menu.bd"), JsonUtility.ToJson(menu, true));
+
+            File.WriteAllText(path, JsonUtility.ToJson(menu, true));
         }
     }
 }

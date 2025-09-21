@@ -13,9 +13,9 @@ MonoBehaviour:
   m_Name: UpzySetting
   m_EditorClassIdentifier: 
   rootFolder: Assets/UpzyGenerated
-  currentRel: current
-  backupRel: backup
-  stagingRel: staging
+  latestRel: latest
+  releaseRel: release
+  rollbackRel: rollback
   modulesRel: Modules
   registeredModules:
-  - configSO: {fileID: 11400000, guid: f4e05a6ea0dcce74a9f23b799b763e27, type: 2}
+  - configSO: {fileID: 11400000, guid: b27fb1d7b4ef4df4798b34d55f1bc62e, type: 2}
