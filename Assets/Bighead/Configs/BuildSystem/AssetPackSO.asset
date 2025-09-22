@@ -9,8 +9,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 1a1feaf5bc7b4d79a64eb2b249fbcfc9, type: 3}
-  m_Name: EnvKeyProvider
+  m_Script: {fileID: 11500000, guid: 8acb1e3671a54d9282a170b3a9b0b897, type: 3}
+  m_Name: AssetPackSO
   m_EditorClassIdentifier: 
-  EnvVarName: CSV_BYTES_KEY
-  DefaultIfMissing: Bighead
+  Compression: 0
+  Labels: []
+  Entries: []
