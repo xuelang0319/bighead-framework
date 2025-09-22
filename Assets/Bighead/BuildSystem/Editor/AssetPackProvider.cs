@@ -47,6 +47,7 @@ namespace Bighead.BuildSystem.Editor
                 Directory.CreateDirectory(dir);
         }
 
+        // ================= SettingsProvider =================
         [SettingsProvider]
         public static SettingsProvider CreateSettingsProvider()
         {
@@ -68,18 +69,18 @@ namespace Bighead.BuildSystem.Editor
                     EditorGUILayout.Space();
                     EditorGUILayout.LabelField("打包条目", EditorStyles.boldLabel);
 
-                    // 提示用户可以拖拽
-                    EditorGUILayout.HelpBox("💡 可以将资源文件夹或文件直接拖拽到此窗口以添加条目", MessageType.Info);
-
-                    // 添加条目按钮
+                    // 添加条目（变更立即持久化）
                     if (GUILayout.Button("+ 添加条目", GUILayout.Height(22)))
-                        TryAddEntry(setting, new AssetPackEntry());
+                    {
+                        setting.Entries.Add(new AssetPackEntry());
+                        MarkSettingDirtyAndSave(setting);
+                    }
 
-                    GUILayout.Space(5);
+                    // 条目列表（变更立即持久化）
                     DrawEntries(setting);
 
-                    // 定位和重置放在列表下方
-                    GUILayout.Space(8);
+                    // 定位/重置
+                    GUILayout.Space(5);
                     EditorGUILayout.BeginHorizontal();
                     if (GUILayout.Button("定位配置文件", GUILayout.Height(22))) Ping();
                     if (GUILayout.Button("重置为初始状态", GUILayout.Height(22)))
@@ -93,10 +94,90 @@ namespace Bighead.BuildSystem.Editor
                     }
                     EditorGUILayout.EndHorizontal();
 
+                    GUILayout.Space(10);
+                    DrawBuildSection(setting);
+
+                    // 同步 SerializedObject（这里只保存通过 PropertyField 改动的部分）
                     so.ApplyModifiedProperties();
                 }
             };
         }
+
+        // ================= 构建区（平台勾选持久化到 EditorPrefs） =================
+
+        private const string PREF_WIN = "Bighead.AssetPack.Build.Windows";
+        private const string PREF_IOS = "Bighead.AssetPack.Build.iOS";
+        private const string PREF_ANDROID = "Bighead.AssetPack.Build.Android";
+        private static bool _prefsLoaded;
+
+        private static bool _platformWindows;
+        private static bool _platformIOS;
+        private static bool _platformAndroid;
+
+        private static void EnsurePlatformPrefsLoaded()
+        {
+            if (_prefsLoaded) return;
+            _platformWindows = EditorPrefs.GetBool(PREF_WIN, true);
+            _platformIOS     = EditorPrefs.GetBool(PREF_IOS, false);
+            _platformAndroid = EditorPrefs.GetBool(PREF_ANDROID, false);
+            _prefsLoaded = true;
+        }
+
+        private static void DrawBuildSection(AssetPackSO setting)
+        {
+            EnsurePlatformPrefsLoaded();
+
+            EditorGUILayout.Space();
+            EditorGUILayout.LabelField("发版平台", EditorStyles.boldLabel);
+
+            EditorGUI.BeginChangeCheck();
+            _platformWindows = EditorGUILayout.ToggleLeft("Windows", _platformWindows);
+            _platformIOS     = EditorGUILayout.ToggleLeft("iOS", _platformIOS);
+            _platformAndroid = EditorGUILayout.ToggleLeft("Android", _platformAndroid);
+            if (EditorGUI.EndChangeCheck())
+            {
+                EditorPrefs.SetBool(PREF_WIN, _platformWindows);
+                EditorPrefs.SetBool(PREF_IOS, _platformIOS);
+                EditorPrefs.SetBool(PREF_ANDROID, _platformAndroid);
+            }
+
+            GUILayout.Space(5);
+            GUI.enabled = _platformWindows || _platformIOS || _platformAndroid;
+            GUI.backgroundColor = Color.green;
+
+            if (GUILayout.Button("立即打包（多平台）", GUILayout.Height(28)))
+            {
+                // 在构建前，确保把对 SO 的改动落盘，防止域重载丢失
+                MarkSettingDirtyAndSave(setting);
+                AssetDatabase.SaveAssets();
+                AssetDatabase.Refresh();
+
+                string platformList = $"{(_platformWindows ? "• Windows\n" : "")}" +
+                                      $"{(_platformIOS ? "• iOS\n" : "")}" +
+                                      $"{(_platformAndroid ? "• Android\n" : "")}";
+
+                if (EditorUtility.DisplayDialog("确认打包",
+                        $"将为以下平台执行打包：\n{platformList}执行前将清空 Addressables 配置，确定继续？",
+                        "确定", "取消"))
+                {
+                    if (_platformWindows) AssetPackPipeline.BuildForPlatform(BuildTarget.StandaloneWindows64);
+                    if (_platformIOS)     AssetPackPipeline.BuildForPlatform(BuildTarget.iOS);
+                    if (_platformAndroid) AssetPackPipeline.BuildForPlatform(BuildTarget.Android);
+                }
+            }
+
+            GUI.backgroundColor = Color.white;
+            GUI.enabled = true;
+
+            GUILayout.Space(5);
+            if (GUILayout.Button("打开输出目录", GUILayout.Height(22)))
+            {
+                // 打开当前 Addressables Profile 解析后的 BuildPath
+                AssetPackPipeline.OpenOutputFolder(); 
+            }
+        }
+
+        // ================= 条目渲染（任何改动立刻持久化） =================
 
         private static Vector2 _entryScroll;
         private static bool _menuOpen;
@@ -109,27 +190,18 @@ namespace Bighead.BuildSystem.Editor
             for (int i = 0; i < setting.Entries.Count; i++)
             {
                 var entry = setting.Entries[i];
+
                 EditorGUILayout.BeginHorizontal();
+                EditorGUI.BeginChangeCheck();
 
-                // 路径输入框
-                entry.Path = EditorGUILayout.TextField(entry.Path, GUILayout.MinWidth(200));
-
-                // 如果路径无效，显示警告图标
-                if (!string.IsNullOrEmpty(entry.Path))
+                // 路径
+                string newPath = EditorGUILayout.TextField(entry.Path, GUILayout.MinWidth(200));
+                if (newPath != entry.Path)
                 {
-                    string absPath = entry.Path.StartsWith("Assets")
-                        ? entry.Path.Replace("Assets", Application.dataPath)
-                        : null;
-                    if (absPath == null || (!Directory.Exists(absPath) && !File.Exists(absPath)))
-                    {
-                        GUILayout.Label(EditorGUIUtility.IconContent("console.warnicon.sml"),
-                            GUILayout.Width(20), GUILayout.Height(20));
-                    }
-                    else GUILayout.Space(20);
+                    entry.Path = newPath;
                 }
-                else GUILayout.Space(20);
 
-                // 选择文件夹按钮
+                // 选择路径（文件夹）
                 if (GUILayout.Button("选择", GUILayout.Width(45)))
                 {
                     var selected = EditorUtility.OpenFolderPanel("选择文件夹", "Assets", "");
@@ -137,7 +209,7 @@ namespace Bighead.BuildSystem.Editor
                         entry.Path = "Assets" + selected.Substring(Application.dataPath.Length);
                 }
 
-                // 标签下拉
+                // 标签多选弹出
                 if (setting.Labels.Count > 0)
                 {
                     string labelName = entry.SelectedLabels.Count > 0
@@ -147,13 +219,19 @@ namespace Bighead.BuildSystem.Editor
                         ShowPersistentLabelMenu(setting, entry);
                 }
 
-                GUI.backgroundColor = Color.red;
+                // 删除条目
                 if (GUILayout.Button("X", GUILayout.Width(25)))
                 {
                     setting.Entries.RemoveAt(i);
+                    MarkSettingDirtyAndSave(setting);
                     GUIUtility.ExitGUI();
                 }
-                GUI.backgroundColor = Color.white;
+
+                // 若行内有任何改动，立刻持久化
+                if (EditorGUI.EndChangeCheck())
+                {
+                    MarkSettingDirtyAndSave(setting);
+                }
 
                 EditorGUILayout.EndHorizontal();
             }
@@ -180,6 +258,7 @@ namespace Bighead.BuildSystem.Editor
                 {
                     if (selected) entry.SelectedLabels.Remove(label);
                     else entry.SelectedLabels.Add(label);
+                    MarkSettingDirtyAndSave(setting);
                 });
             }
 
@@ -197,22 +276,21 @@ namespace Bighead.BuildSystem.Editor
                     DragAndDrop.AcceptDrag();
                     foreach (var path in DragAndDrop.paths)
                     {
-                        if (path.StartsWith("Assets"))
-                            TryAddEntry(setting, new AssetPackEntry { Path = path });
+                        if (!path.StartsWith("Assets")) continue;
+                        if (setting.Entries.Any(e => e.Path == path)) continue;
+
+                        setting.Entries.Add(new AssetPackEntry { Path = path });
+                        MarkSettingDirtyAndSave(setting);
                     }
                 }
                 evt.Use();
             }
         }
 
-        private static void TryAddEntry(AssetPackSO setting, AssetPackEntry entry)
+        private static void MarkSettingDirtyAndSave(AssetPackSO setting)
         {
-            if (setting.Entries.Any(e => e.Path == entry.Path))
-            {
-                Debug.LogWarning($"[Bighead] 已存在条目: {entry.Path}");
-                return;
-            }
-            setting.Entries.Add(entry);
+            EditorUtility.SetDirty(setting);
+            AssetDatabase.SaveAssets();
         }
     }
 }

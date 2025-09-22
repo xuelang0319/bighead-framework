@@ -14,4 +14,22 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   Compression: 0
   Labels: []
-  Entries: []
+  Entries:
+  - Path: Assets/Bighead/Upzy/Core/BuildEntry.cs
+    SelectedLabels: []
+  - Path: Assets/Bighead/Upzy/Core/BuildResult.cs
+    SelectedLabels: []
+  - Path: Assets/Bighead/Upzy/Core/ChangeLevel.cs
+    SelectedLabels: []
+  - Path: Assets/Bighead/Upzy/Core/ConfigVersion.cs
+    SelectedLabels: []
+  - Path: Assets/Bighead/Upzy/Core/ModuleBd.cs
+    SelectedLabels: []
+  - Path: Assets/Bighead/Upzy/Core/UpzyBuildableBase.cs
+    SelectedLabels: []
+  - Path: Assets/Bighead/Upzy/Core/UpzyEntry.cs
+    SelectedLabels: []
+  - Path: Assets/Bighead/Upzy/Core/UpzyModuleSO.cs
+    SelectedLabels: []
+  - Path: Assets/Bighead/Csv/Editor
+    SelectedLabels: []
