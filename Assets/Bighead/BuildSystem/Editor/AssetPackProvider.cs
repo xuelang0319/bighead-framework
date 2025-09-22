@@ -47,7 +47,6 @@ namespace Bighead.BuildSystem.Editor
                 Directory.CreateDirectory(dir);
         }
 
-        // ================= SettingsProvider =================
         [SettingsProvider]
         public static SettingsProvider CreateSettingsProvider()
         {
@@ -57,29 +56,32 @@ namespace Bighead.BuildSystem.Editor
                 guiHandler = _ =>
                 {
                     var setting = LoadOrCreate();
-                    var so = new SerializedObject(setting);
+                    var soObj = new SerializedObject(setting);
 
                     HandleGlobalDrag(setting);
 
+                    // 显示配置文件路径
                     EditorGUILayout.HelpBox($"配置文件路径: {AssetPath}", MessageType.None);
-                    EditorGUILayout.PropertyField(so.FindProperty("Compression"));
+
+                    // 全局压缩设置
+                    EditorGUILayout.PropertyField(soObj.FindProperty("Compression"));
+
+                    // 全局标签
                     EditorGUILayout.LabelField("全局标签", EditorStyles.boldLabel);
-                    EditorGUILayout.PropertyField(so.FindProperty("Labels"), true);
+                    EditorGUILayout.PropertyField(soObj.FindProperty("Labels"), true);
 
                     EditorGUILayout.Space();
                     EditorGUILayout.LabelField("打包条目", EditorStyles.boldLabel);
 
-                    // 添加条目（变更立即持久化）
                     if (GUILayout.Button("+ 添加条目", GUILayout.Height(22)))
                     {
                         setting.Entries.Add(new AssetPackEntry());
                         MarkSettingDirtyAndSave(setting);
                     }
 
-                    // 条目列表（变更立即持久化）
+                    // 条目渲染
                     DrawEntries(setting);
 
-                    // 定位/重置
                     GUILayout.Space(5);
                     EditorGUILayout.BeginHorizontal();
                     if (GUILayout.Button("定位配置文件", GUILayout.Height(22))) Ping();
@@ -97,88 +99,12 @@ namespace Bighead.BuildSystem.Editor
                     GUILayout.Space(10);
                     DrawBuildSection(setting);
 
-                    // 同步 SerializedObject（这里只保存通过 PropertyField 改动的部分）
-                    so.ApplyModifiedProperties();
+                    soObj.ApplyModifiedProperties();
                 }
             };
         }
 
-        // ================= 构建区（平台勾选持久化到 EditorPrefs） =================
-
-        private const string PREF_WIN = "Bighead.AssetPack.Build.Windows";
-        private const string PREF_IOS = "Bighead.AssetPack.Build.iOS";
-        private const string PREF_ANDROID = "Bighead.AssetPack.Build.Android";
-        private static bool _prefsLoaded;
-
-        private static bool _platformWindows;
-        private static bool _platformIOS;
-        private static bool _platformAndroid;
-
-        private static void EnsurePlatformPrefsLoaded()
-        {
-            if (_prefsLoaded) return;
-            _platformWindows = EditorPrefs.GetBool(PREF_WIN, true);
-            _platformIOS     = EditorPrefs.GetBool(PREF_IOS, false);
-            _platformAndroid = EditorPrefs.GetBool(PREF_ANDROID, false);
-            _prefsLoaded = true;
-        }
-
-        private static void DrawBuildSection(AssetPackSO setting)
-        {
-            EnsurePlatformPrefsLoaded();
-
-            EditorGUILayout.Space();
-            EditorGUILayout.LabelField("发版平台", EditorStyles.boldLabel);
-
-            EditorGUI.BeginChangeCheck();
-            _platformWindows = EditorGUILayout.ToggleLeft("Windows", _platformWindows);
-            _platformIOS     = EditorGUILayout.ToggleLeft("iOS", _platformIOS);
-            _platformAndroid = EditorGUILayout.ToggleLeft("Android", _platformAndroid);
-            if (EditorGUI.EndChangeCheck())
-            {
-                EditorPrefs.SetBool(PREF_WIN, _platformWindows);
-                EditorPrefs.SetBool(PREF_IOS, _platformIOS);
-                EditorPrefs.SetBool(PREF_ANDROID, _platformAndroid);
-            }
-
-            GUILayout.Space(5);
-            GUI.enabled = _platformWindows || _platformIOS || _platformAndroid;
-            GUI.backgroundColor = Color.green;
-
-            if (GUILayout.Button("立即打包（多平台）", GUILayout.Height(28)))
-            {
-                // 在构建前，确保把对 SO 的改动落盘，防止域重载丢失
-                MarkSettingDirtyAndSave(setting);
-                AssetDatabase.SaveAssets();
-                AssetDatabase.Refresh();
-
-                string platformList = $"{(_platformWindows ? "• Windows\n" : "")}" +
-                                      $"{(_platformIOS ? "• iOS\n" : "")}" +
-                                      $"{(_platformAndroid ? "• Android\n" : "")}";
-
-                if (EditorUtility.DisplayDialog("确认打包",
-                        $"将为以下平台执行打包：\n{platformList}执行前将清空 Addressables 配置，确定继续？",
-                        "确定", "取消"))
-                {
-                    if (_platformWindows) AssetPackPipeline.BuildForPlatform(BuildTarget.StandaloneWindows64);
-                    if (_platformIOS)     AssetPackPipeline.BuildForPlatform(BuildTarget.iOS);
-                    if (_platformAndroid) AssetPackPipeline.BuildForPlatform(BuildTarget.Android);
-                }
-            }
-
-            GUI.backgroundColor = Color.white;
-            GUI.enabled = true;
-
-            GUILayout.Space(5);
-            if (GUILayout.Button("打开输出目录", GUILayout.Height(22)))
-            {
-                // 打开当前 Addressables Profile 解析后的 BuildPath
-                AssetPackPipeline.OpenOutputFolder(); 
-            }
-        }
-
-        // ================= 条目渲染（任何改动立刻持久化） =================
-
+        // ======================= 条目渲染 =======================
         private static Vector2 _entryScroll;
         private static bool _menuOpen;
 
@@ -190,18 +116,16 @@ namespace Bighead.BuildSystem.Editor
             for (int i = 0; i < setting.Entries.Count; i++)
             {
                 var entry = setting.Entries[i];
-
                 EditorGUILayout.BeginHorizontal();
+
                 EditorGUI.BeginChangeCheck();
 
-                // 路径
+                // 路径输入框
                 string newPath = EditorGUILayout.TextField(entry.Path, GUILayout.MinWidth(200));
                 if (newPath != entry.Path)
-                {
                     entry.Path = newPath;
-                }
 
-                // 选择路径（文件夹）
+                // 选择路径
                 if (GUILayout.Button("选择", GUILayout.Width(45)))
                 {
                     var selected = EditorUtility.OpenFolderPanel("选择文件夹", "Assets", "");
@@ -209,29 +133,29 @@ namespace Bighead.BuildSystem.Editor
                         entry.Path = "Assets" + selected.Substring(Application.dataPath.Length);
                 }
 
-                // 标签多选弹出
+                // 标签选择
                 if (setting.Labels.Count > 0)
                 {
                     string labelName = entry.SelectedLabels.Count > 0
                         ? string.Join(", ", entry.SelectedLabels)
                         : "选择标签";
+
                     if (GUILayout.Button(labelName, EditorStyles.popup, GUILayout.Width(120)))
                         ShowPersistentLabelMenu(setting, entry);
                 }
 
                 // 删除条目
+                GUI.backgroundColor = Color.red;
                 if (GUILayout.Button("X", GUILayout.Width(25)))
                 {
                     setting.Entries.RemoveAt(i);
                     MarkSettingDirtyAndSave(setting);
                     GUIUtility.ExitGUI();
                 }
+                GUI.backgroundColor = Color.white;
 
-                // 若行内有任何改动，立刻持久化
                 if (EditorGUI.EndChangeCheck())
-                {
                     MarkSettingDirtyAndSave(setting);
-                }
 
                 EditorGUILayout.EndHorizontal();
             }
@@ -291,6 +215,78 @@ namespace Bighead.BuildSystem.Editor
         {
             EditorUtility.SetDirty(setting);
             AssetDatabase.SaveAssets();
+        }
+
+        // ======================= 发版区（多平台选择 + 打包按钮） =======================
+        private const string PREF_WIN = "Bighead.AssetPack.Build.Windows";
+        private const string PREF_IOS = "Bighead.AssetPack.Build.iOS";
+        private const string PREF_ANDROID = "Bighead.AssetPack.Build.Android";
+
+        private static bool _prefsLoaded;
+        private static bool _platformWindows;
+        private static bool _platformIOS;
+        private static bool _platformAndroid;
+
+        private static void EnsurePlatformPrefsLoaded()
+        {
+            if (_prefsLoaded) return;
+            _platformWindows = EditorPrefs.GetBool(PREF_WIN, true);
+            _platformIOS = EditorPrefs.GetBool(PREF_IOS, false);
+            _platformAndroid = EditorPrefs.GetBool(PREF_ANDROID, false);
+            _prefsLoaded = true;
+        }
+
+        private static void DrawBuildSection(AssetPackSO setting)
+        {
+            EnsurePlatformPrefsLoaded();
+
+            EditorGUILayout.Space();
+            EditorGUILayout.LabelField("发版平台", EditorStyles.boldLabel);
+
+            EditorGUI.BeginChangeCheck();
+            _platformWindows = EditorGUILayout.ToggleLeft("Windows", _platformWindows);
+            _platformIOS = EditorGUILayout.ToggleLeft("iOS", _platformIOS);
+            _platformAndroid = EditorGUILayout.ToggleLeft("Android", _platformAndroid);
+            if (EditorGUI.EndChangeCheck())
+            {
+                EditorPrefs.SetBool(PREF_WIN, _platformWindows);
+                EditorPrefs.SetBool(PREF_IOS, _platformIOS);
+                EditorPrefs.SetBool(PREF_ANDROID, _platformAndroid);
+            }
+
+            GUILayout.Space(5);
+            GUI.enabled = _platformWindows || _platformIOS || _platformAndroid;
+            GUI.backgroundColor = Color.green;
+
+            if (GUILayout.Button("立即打包（多平台）", GUILayout.Height(28)))
+            {
+                EditorUtility.SetDirty(setting);
+                AssetDatabase.SaveAssets();
+                AssetDatabase.Refresh();
+
+                string platformList =
+                    $"{(_platformWindows ? "• Windows\n" : "")}" +
+                    $"{(_platformIOS ? "• iOS\n" : "")}" +
+                    $"{(_platformAndroid ? "• Android\n" : "")}";
+
+                if (EditorUtility.DisplayDialog("确认打包",
+                        $"将为以下平台执行打包：\n{platformList}执行前将清空 Addressables 临时 Group，确定继续？",
+                        "确定", "取消"))
+                {
+                    if (_platformWindows) AssetPackPipeline.BuildForPlatform(BuildTarget.StandaloneWindows64);
+                    if (_platformIOS) AssetPackPipeline.BuildForPlatform(BuildTarget.iOS);
+                    if (_platformAndroid) AssetPackPipeline.BuildForPlatform(BuildTarget.Android);
+                }
+            }
+
+            GUI.backgroundColor = Color.white;
+            GUI.enabled = true;
+
+            GUILayout.Space(5);
+            if (GUILayout.Button("打开输出目录", GUILayout.Height(22)))
+            {
+                AssetPackPipeline.OpenOutputFolder();
+            }
         }
     }
 }

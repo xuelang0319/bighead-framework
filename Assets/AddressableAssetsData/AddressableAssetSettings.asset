@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 468a46d0ae32c3544b7d98094e6448a9, type: 3}
   m_Name: AddressableAssetSettings
   m_EditorClassIdentifier: 
-  m_DefaultGroup: 1c6163288ad899540a6eaeb8b47b44b8
+  m_DefaultGroup: 000a9ce4993b5364ab4f9e6926f3ffa8
   m_currentHash:
     serializedVersion: 2
     Hash: 00000000000000000000000000000000
@@ -58,10 +58,18 @@ MonoBehaviour:
       m_Values:
       - m_Id: 1960a620a55910441ae8330bd0a3468e
         m_Value: http://[PrivateIpAddress]:[HostingServicePort]
+      - m_Id: 24f6cf6e20aaa8742a1dbc7f7ee12f53
+        m_Value: ServerData/StandaloneWindows64
       - m_Id: 2525980bf201b1346b9d27c92a800def
         m_Value: '[UnityEditor.EditorUserBuildSettings.activeBuildTarget]'
+      - m_Id: 345685c3fe504ca41bec769d8977fa82
+        m_Value: ServerData/StandaloneWindows64
       - m_Id: 589424cbb6f214b4b92bf83fc66981c7
         m_Value: '[UnityEngine.AddressableAssets.Addressables.BuildPath]/[BuildTarget]'
+      - m_Id: cbac88325ae226e47ae0c18c716e01ce
+        m_Value: ServerData/StandaloneWindows64
+      - m_Id: e270f59275bf9f64ca4827404fc1782e
+        m_Value: ServerData/StandaloneWindows64
       - m_Id: e8ae3ace8c41079489e4543e27f3016c
         m_Value: '{UnityEngine.AddressableAssets.Addressables.RuntimePath}/[BuildTarget]'
       - m_Id: f3f35d3d07d82c34c9b7a69fe9596c96
@@ -70,11 +78,23 @@ MonoBehaviour:
     - m_Id: 1960a620a55910441ae8330bd0a3468e
       m_Name: Remote.LoadPath
       m_InlineUsage: 0
+    - m_Id: 24f6cf6e20aaa8742a1dbc7f7ee12f53
+      m_Name: Bighead.LoadPath
+      m_InlineUsage: 0
     - m_Id: 2525980bf201b1346b9d27c92a800def
       m_Name: BuildTarget
       m_InlineUsage: 0
+    - m_Id: 345685c3fe504ca41bec769d8977fa82
+      m_Name: LoadPath
+      m_InlineUsage: 0
     - m_Id: 589424cbb6f214b4b92bf83fc66981c7
       m_Name: Local.BuildPath
+      m_InlineUsage: 0
+    - m_Id: cbac88325ae226e47ae0c18c716e01ce
+      m_Name: Bighead.BuildPath
+      m_InlineUsage: 0
+    - m_Id: e270f59275bf9f64ca4827404fc1782e
+      m_Name: BuildPath
       m_InlineUsage: 0
     - m_Id: e8ae3ace8c41079489e4543e27f3016c
       m_Name: Local.LoadPath

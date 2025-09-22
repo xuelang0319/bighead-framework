@@ -4,6 +4,7 @@ using UnityEngine;
 using System.IO;
 using System.Linq;
 using System.Collections.Generic;
+
 using UnityEditor.AddressableAssets;
 using UnityEditor.AddressableAssets.Settings;
 using UnityEditor.AddressableAssets.Settings.GroupSchemas;
@@ -12,9 +13,12 @@ namespace Bighead.BuildSystem.Editor
 {
     public static class AssetPackPipeline
     {
+        // 我们自定义的 Profile 变量名（避免动到 Unity 内置变量）
+        private const string BigheadBuildVar = "Bighead.BuildPath";
+        private const string BigheadLoadVar  = "Bighead.LoadPath";
+
         public static void BuildForPlatform(BuildTarget target)
         {
-            var sw = System.Diagnostics.Stopwatch.StartNew();
             var settings = AddressableAssetSettingsDefaultObject.Settings;
             if (settings == null)
             {
@@ -22,41 +26,96 @@ namespace Bighead.BuildSystem.Editor
                 return;
             }
 
+            // 1) 切换平台（非常关键）
+            var group = BuildPipeline.GetBuildTargetGroup(target);
+            if (EditorUserBuildSettings.activeBuildTarget != target)
+            {
+                Debug.Log($"[Bighead] 切换平台到 {target}...");
+                if (!EditorUserBuildSettings.SwitchActiveBuildTarget(group, target))
+                {
+                    Debug.LogError($"[Bighead] 平台切换失败: {target}，终止打包。");
+                    return;
+                }
+            }
+
+            // 2) 确保 Profile 变量存在并设置为 ServerData/<Target>（不在 Assets 下，避免导入冲突）
+            EnsureAndSetProfilePaths(settings, target, out string resolvedBuildPath);
+
+            // 3) 全流程（分段进度条）
+            DoBuildInternal(target, settings, resolvedBuildPath);
+        }
+
+        private static void EnsureAndSetProfilePaths(AddressableAssetSettings settings, BuildTarget target, out string resolvedBuildPath)
+        {
+            var profile = settings.profileSettings;
+            string profileId = settings.activeProfileId;
+
+            // 如果没这个变量，就创建（默认值给个安全值）
+            if (profile.GetValueByName(profileId, BigheadBuildVar) == null)
+                profile.CreateValue(BigheadBuildVar, $"ServerData/[BuildTarget]");
+            if (profile.GetValueByName(profileId, BigheadLoadVar) == null)
+                profile.CreateValue(BigheadLoadVar, $"ServerData/[BuildTarget]");
+
+            // 为当前 Profile 设置我们想要的值（永久生效，按你的要求不恢复）
+            string newBuildPath = $"ServerData/{target}";
+            string newLoadPath  = newBuildPath;
+
+            profile.SetValue(profileId, BigheadBuildVar, newBuildPath);
+            profile.SetValue(profileId, BigheadLoadVar,  newLoadPath);
+
+            EditorUtility.SetDirty(settings);
+            AssetDatabase.SaveAssets();
+
+            // 解析成绝对路径并预创建目录
+            string raw = profile.GetValueByName(profileId, BigheadBuildVar);
+            string resolved = profile.EvaluateString(profileId, raw);
+            resolvedBuildPath = Path.GetFullPath(resolved);
+            if (!Directory.Exists(resolvedBuildPath))
+            {
+                Directory.CreateDirectory(resolvedBuildPath);
+                Debug.Log($"[Bighead] 创建输出目录: {resolvedBuildPath}");
+            }
+        }
+
+        private static void DoBuildInternal(BuildTarget target, AddressableAssetSettings settings, string resolvedBuildPath)
+        {
+            var sw = System.Diagnostics.Stopwatch.StartNew();
             try
             {
-                // 关键：切换 Unity 活动平台，确保 Addressables 为正确平台构建
-                var group = BuildPipeline.GetBuildTargetGroup(target);
-                if (EditorUserBuildSettings.activeBuildTarget != target)
-                {
-                    Debug.Log($"[Bighead] 切换平台到 {target}...");
-                    if (!EditorUserBuildSettings.SwitchActiveBuildTarget(group, target))
-                    {
-                        Debug.LogError($"[Bighead] 平台切换失败: {target}，终止打包。");
-                        return;
-                    }
-                }
-
                 // 阶段 1：清空
                 EditorUtility.DisplayProgressBar($"Bighead Build ({target}) - 阶段 1/4", "清理 Addressables...", 0);
                 ClearAllGroups(settings);
                 EditorUtility.DisplayProgressBar($"Bighead Build ({target}) - 阶段 1/4", "清理完成", 1);
 
-                // 阶段 2：灌入
-                SyncEntries(settings, target);
+                // 阶段 2：灌入（返回有效条目数）
+                int added = SyncEntries(settings, target);
+                if (added <= 0)
+                {
+                    EditorUtility.ClearProgressBar();
+                    EditorUtility.DisplayDialog("打包中止", "没有可构建的资源条目（条目数为 0）。", "确定");
+                    return;
+                }
+
+                // 刷新保证新配置生效
+                AssetDatabase.SaveAssets();
+                AssetDatabase.Refresh();
 
                 // 阶段 3：构建
                 EditorUtility.DisplayProgressBar($"Bighead Build ({target}) - 阶段 3/4", $"构建 Player Content ({target})...", 0);
                 AddressableAssetSettings.BuildPlayerContent();
                 EditorUtility.DisplayProgressBar($"Bighead Build ({target}) - 阶段 3/4", "构建完成", 1);
 
-                // 阶段 4：再次清空
+                // 阶段 4：清理临时 Group
                 EditorUtility.DisplayProgressBar($"Bighead Build ({target}) - 阶段 4/4", "清理临时 Group...", 0);
                 ClearAllGroups(settings);
                 AssetDatabase.SaveAssets();
                 EditorUtility.DisplayProgressBar($"Bighead Build ({target}) - 阶段 4/4", "清理完成", 1);
 
                 sw.Stop();
-                Debug.Log($"[Bighead] {target} 平台打包完成，用时 {sw.ElapsedMilliseconds / 1000f:F2}s");
+                Debug.Log($"[Bighead] {target} 平台打包完成，用时 {sw.ElapsedMilliseconds / 1000f:F2}s，输出：{resolvedBuildPath}");
+
+                // 打包完成后，直接打开结果目录
+                OpenOutputFolder();
             }
             finally
             {
@@ -66,27 +125,33 @@ namespace Bighead.BuildSystem.Editor
 
         private static void ClearAllGroups(AddressableAssetSettings settings)
         {
-            // 只清空 Addressables Group，不碰 AssetPackSO
             var toRemove = settings.groups.Where(g => g != null && g.Name != "Built In Data").ToList();
             foreach (var g in toRemove)
-            {
                 settings.RemoveGroup(g);
-            }
+
             Debug.Log($"[Bighead] 已清空 Addressables Group，共移除 {toRemove.Count} 个");
         }
 
-        private static void SyncEntries(AddressableAssetSettings settings, BuildTarget target)
+        /// <summary>
+        /// 将 AssetPackSO 的 Entry 写入 Addressables：
+        /// - 每个 Entry = 一个 Group
+        /// - 目录则展开为该 Group 的多个条目
+        /// - 为每个 Group 绑定 Bighead.BuildPath / Bighead.LoadPath
+        /// 返回：新增/更新的总条目数
+        /// </summary>
+        private static int SyncEntries(AddressableAssetSettings settings, BuildTarget target)
         {
             var so = AssetPackProvider.LoadOrCreate();
 
-            // 统计文件总数用于进度条
+            // 汇总总文件数（用于阶段 2 进度条）
             var allFiles = new List<string>();
-            foreach (var entry in so.Entries)
+            foreach (var e in so.Entries)
             {
-                if (Directory.Exists(entry.Path))
-                    allFiles.AddRange(GetFilesInDirectory(entry.Path));
-                else if (File.Exists(entry.Path))
-                    allFiles.Add(entry.Path);
+                if (!string.IsNullOrEmpty(e.Path))
+                {
+                    if (Directory.Exists(e.Path)) allFiles.AddRange(GetFilesInDirectory(e.Path));
+                    else if (File.Exists(e.Path)) allFiles.Add(e.Path);
+                }
             }
             int total = allFiles.Count;
             int processed = 0;
@@ -95,14 +160,37 @@ namespace Bighead.BuildSystem.Editor
 
             foreach (var entry in so.Entries)
             {
-                var groupName = $"[Bighead] {entry.Path}";
-                var group = settings.CreateGroup(groupName, false, false, false, null,
-                    typeof(BundledAssetGroupSchema), typeof(ContentUpdateGroupSchema));
+                if (string.IsNullOrEmpty(entry.Path))
+                    continue;
 
                 var files = Directory.Exists(entry.Path)
                     ? GetFilesInDirectory(entry.Path)
-                    : new List<string> { entry.Path };
+                    : (File.Exists(entry.Path) ? new List<string> { entry.Path } : new List<string>());
 
+                if (files.Count == 0)
+                    continue;
+
+                // 1) 创建/拿到 Group
+                string groupName = $"[Bighead] {entry.Path}";
+                var group = settings.FindGroup(groupName);
+                if (group == null)
+                {
+                    group = settings.CreateGroup(groupName, false, false, false, null,
+                        typeof(BundledAssetGroupSchema), typeof(ContentUpdateGroupSchema));
+                }
+
+                // 2) 绑定 Group 的 BuildPath/LoadPath 到我们的 Profile 变量
+                var bundled = group.GetSchema<BundledAssetGroupSchema>();
+                if (bundled == null) bundled = group.AddSchema<BundledAssetGroupSchema>();
+
+                // 关键：把 schema 的 Profile 引用指向我们创建的变量名
+                bundled.BuildPath.SetVariableByName(settings, BigheadBuildVar);
+                bundled.LoadPath.SetVariableByName(settings,  BigheadLoadVar);
+
+                // 其它 schema 参数可按需设定（示例：保持默认即可）
+                EditorUtility.SetDirty(bundled);
+
+                // 3) 填充条目
                 foreach (var file in files)
                 {
                     processed++;
@@ -114,22 +202,24 @@ namespace Bighead.BuildSystem.Editor
                     if (string.IsNullOrEmpty(guid)) continue;
 
                     var addrEntry = settings.CreateOrMoveEntry(guid, group);
-                    addrEntry.address = file;
+                    addrEntry.address = file; // 以资源路径作为 Address
                     addrEntry.labels.Clear();
                     foreach (var l in entry.SelectedLabels)
                         addrEntry.SetLabel(l, true);
                 }
+
+                EditorUtility.SetDirty(group);
             }
 
-            EditorUtility.DisplayProgressBar($"Bighead Build ({target}) - 阶段 2/4", "灌入完成", 1);
             AssetDatabase.SaveAssets();
             Debug.Log($"[Bighead] 已灌入 {processed} 个资源");
+            return processed;
         }
 
         private static List<string> GetFilesInDirectory(string dir)
         {
             return Directory.GetFiles(dir, "*", SearchOption.AllDirectories)
-                .Where(path => !path.EndsWith(".meta"))
+                .Where(p => !p.EndsWith(".meta"))
                 .Select(NormalizeAssetPath)
                 .ToList();
         }
@@ -142,6 +232,7 @@ namespace Bighead.BuildSystem.Editor
                 : fullPath;
         }
 
+        // —— 打开输出目录：使用我们自定义的 Bighead.BuildPath 解析当前 Profile 的真实路径 ——
         public static void OpenOutputFolder()
         {
             var settings = AddressableAssetSettingsDefaultObject.Settings;
@@ -151,10 +242,17 @@ namespace Bighead.BuildSystem.Editor
                 return;
             }
 
+            var profile = settings.profileSettings;
             string profileId = settings.activeProfileId;
-            string rawBuildPath = settings.profileSettings.GetValueByName(profileId, AddressableAssetSettings.kBuildPath);
-            string resolvedPath = settings.profileSettings.EvaluateString(profileId, rawBuildPath);
-            string fullPath = Path.GetFullPath(resolvedPath);
+            string raw = profile.GetValueByName(profileId, BigheadBuildVar);
+            if (string.IsNullOrEmpty(raw))
+            {
+                // 若用户还没运行过我们流程，退回到官方变量名
+                raw = profile.GetValueByName(profileId, AddressableAssetSettings.kBuildPath);
+            }
+
+            string resolved = profile.EvaluateString(profileId, raw);
+            string fullPath = Path.GetFullPath(resolved);
 
             if (!Directory.Exists(fullPath))
             {
@@ -165,7 +263,6 @@ namespace Bighead.BuildSystem.Editor
             EditorUtility.RevealInFinder(fullPath);
             Debug.Log($"[Bighead] 打开打包结果目录：{fullPath}");
         }
-
     }
 }
 #endif
