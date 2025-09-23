@@ -3,13 +3,19 @@ using System.IO;
 using System.Net.Http;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
+using UnityEngine.AddressableAssets;
 
 public class Test : MonoBehaviour
 {
     private async void Awake()
     {
-        await Main();
-        Debug.LogError($"Execute Finished");
+        var handle = Addressables.InstantiateAsync("Assets/Test/Cube.prefab");
+        handle.WaitForCompletion();
+        handle = Addressables.InstantiateAsync("Assets/Test/GameObject.prefab");
+        handle.WaitForCompletion();
+        Debug.Log($"Instantiated: {handle.Result.name}");
+        /*await Main();
+        Debug.LogError($"Execute Finished");*/
     }
 
     private async UniTask Main()
