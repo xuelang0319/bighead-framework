@@ -15,21 +15,9 @@ MonoBehaviour:
   Compression: 0
   Labels: []
   Entries:
-  - Path: Assets/Bighead/Upzy/Core/BuildEntry.cs
+  - Path: Assets/Resources/BillingMode.json
     SelectedLabels: []
-  - Path: Assets/Bighead/Upzy/Core/BuildResult.cs
-    SelectedLabels: []
-  - Path: Assets/Bighead/Upzy/Core/ChangeLevel.cs
-    SelectedLabels: []
-  - Path: Assets/Bighead/Upzy/Core/ConfigVersion.cs
-    SelectedLabels: []
-  - Path: Assets/Bighead/Upzy/Core/ModuleBd.cs
-    SelectedLabels: []
-  - Path: Assets/Bighead/Upzy/Core/UpzyBuildableBase.cs
-    SelectedLabels: []
-  - Path: Assets/Bighead/Upzy/Core/UpzyEntry.cs
-    SelectedLabels: []
-  - Path: Assets/Bighead/Upzy/Core/UpzyModuleSO.cs
-    SelectedLabels: []
-  - Path: Assets/Bighead/Csv/Editor
-    SelectedLabels: []
+  Deploy:
+    ServerAddress: 120.26.192.253
+    Port: 8081
+    SyncUpload: 1

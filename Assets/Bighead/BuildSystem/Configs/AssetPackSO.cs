@@ -19,6 +19,9 @@ namespace Bighead.BuildSystem
 
         [Header("打包条目列表")]
         public List<AssetPackEntry> Entries = new List<AssetPackEntry>();
+        
+        [Header("部署配置")]
+        public DeployConfig Deploy = new DeployConfig();
     }
 
     [Serializable]
@@ -36,4 +39,13 @@ namespace Bighead.BuildSystem
         LZ4,
         Uncompressed
     }
+    
+    [System.Serializable]
+    public class DeployConfig
+    {
+        public string ServerAddress = "";
+        public int Port = 8081;
+        [HideInInspector] public bool SyncUpload; // 只做编辑器显示用
+    }
+
 }

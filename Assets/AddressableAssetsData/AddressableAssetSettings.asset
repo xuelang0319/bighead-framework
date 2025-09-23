@@ -12,10 +12,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 468a46d0ae32c3544b7d98094e6448a9, type: 3}
   m_Name: AddressableAssetSettings
   m_EditorClassIdentifier: 
-  m_DefaultGroup: 000a9ce4993b5364ab4f9e6926f3ffa8
+  m_DefaultGroup: 0d046b0ac509ded4a88ff99e74358ee2
   m_currentHash:
     serializedVersion: 2
-    Hash: 00000000000000000000000000000000
+    Hash: c7990d7f2e873276ab38e25c07d7a9d9
   m_OptimizeCatalogSize: 0
   m_BuildRemoteCatalog: 0
   m_BundleLocalCatalog: 0
@@ -59,7 +59,7 @@ MonoBehaviour:
       - m_Id: 1960a620a55910441ae8330bd0a3468e
         m_Value: http://[PrivateIpAddress]:[HostingServicePort]
       - m_Id: 24f6cf6e20aaa8742a1dbc7f7ee12f53
-        m_Value: ServerData/StandaloneWindows64
+        m_Value: ServerData/Android
       - m_Id: 2525980bf201b1346b9d27c92a800def
         m_Value: '[UnityEditor.EditorUserBuildSettings.activeBuildTarget]'
       - m_Id: 345685c3fe504ca41bec769d8977fa82
@@ -67,7 +67,7 @@ MonoBehaviour:
       - m_Id: 589424cbb6f214b4b92bf83fc66981c7
         m_Value: '[UnityEngine.AddressableAssets.Addressables.BuildPath]/[BuildTarget]'
       - m_Id: cbac88325ae226e47ae0c18c716e01ce
-        m_Value: ServerData/StandaloneWindows64
+        m_Value: ServerData/Android
       - m_Id: e270f59275bf9f64ca4827404fc1782e
         m_Value: ServerData/StandaloneWindows64
       - m_Id: e8ae3ace8c41079489e4543e27f3016c

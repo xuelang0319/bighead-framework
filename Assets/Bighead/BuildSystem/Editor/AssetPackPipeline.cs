@@ -1,13 +1,18 @@
 ﻿#if UNITY_EDITOR
+using System;
 using UnityEditor;
 using UnityEngine;
 using System.IO;
 using System.Linq;
 using System.Collections.Generic;
-
+using System.IO.Compression;
+using System.Net.Http;
+using System.Threading.Tasks;
 using UnityEditor.AddressableAssets;
 using UnityEditor.AddressableAssets.Settings;
 using UnityEditor.AddressableAssets.Settings.GroupSchemas;
+using UnityEngine.Networking;
+using CompressionLevel = System.IO.Compression.CompressionLevel;
 
 namespace Bighead.BuildSystem.Editor
 {
@@ -111,6 +116,15 @@ namespace Bighead.BuildSystem.Editor
                 AssetDatabase.SaveAssets();
                 EditorUtility.DisplayProgressBar($"Bighead Build ({target}) - 阶段 4/4", "清理完成", 1);
 
+                var so = AssetPackProvider.LoadOrCreate();
+                if (so.Deploy.SyncUpload)
+                {
+                    string zipPath = BuildZip(resolvedBuildPath);
+                    SyncToServer(zipPath, so.Deploy.ServerAddress, so.Deploy.Port, AssetPackProvider.TempToken, target.ToString());
+
+                    Debug.Log($"[Bighead] 已生成压缩包：{zipPath}");
+                }
+                
                 sw.Stop();
                 Debug.Log($"[Bighead] {target} 平台打包完成，用时 {sw.ElapsedMilliseconds / 1000f:F2}s，输出：{resolvedBuildPath}");
 
@@ -130,6 +144,69 @@ namespace Bighead.BuildSystem.Editor
                 settings.RemoveGroup(g);
 
             Debug.Log($"[Bighead] 已清空 Addressables Group，共移除 {toRemove.Count} 个");
+        }
+        public static async void SyncToServer(string zipPath, string serverIp, int port, string token, string subdir)
+        {
+            if (string.IsNullOrEmpty(zipPath) || !File.Exists(zipPath))
+            {
+                Debug.LogError($"[Bighead] SyncToServer 失败：找不到 zip 文件 {zipPath}");
+                return;
+            }
+
+            string url = $"http://{serverIp}:{port}/deploy?subdir={Uri.EscapeDataString(subdir)}";
+            Debug.Log($"[Bighead] 正在上传 {Path.GetFileName(zipPath)} 到 {url} ...");
+
+            try
+            {
+                using var http = new HttpClient();
+                using var content = new StreamContent(File.OpenRead(zipPath));
+
+                content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/octet-stream");
+                if (!string.IsNullOrEmpty(token))
+                    http.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+                var response = await http.PostAsync(url, content);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    string respText = await response.Content.ReadAsStringAsync();
+                    Debug.Log($"[Bighead] 上传成功：{respText}");
+                }
+                else
+                {
+                    string err = await response.Content.ReadAsStringAsync();
+                    Debug.LogError($"[Bighead] 上传失败：{response.StatusCode} {err}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[Bighead] 上传异常：{ex.Message}");
+            }
+        }
+        
+        /// <summary>
+        /// 将指定目录打包为 Zip 文件，并返回生成的 Zip 文件路径
+        /// </summary>
+        public static string BuildZip(string folderPath)
+        {
+            if (string.IsNullOrEmpty(folderPath) || !Directory.Exists(folderPath))
+            {
+                Debug.LogError($"[Bighead] BuildZip 失败：目录不存在 {folderPath}");
+                return null;
+            }
+
+            // 生成同级目录下的 zip 文件路径
+            string zipPath = folderPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + ".zip";
+
+            // 如果已有同名文件，先删除
+            if (File.Exists(zipPath))
+                File.Delete(zipPath);
+
+            // 使用 .NET 原生压缩功能
+            ZipFile.CreateFromDirectory(folderPath, zipPath, CompressionLevel.Optimal, includeBaseDirectory: false);
+
+            Debug.Log($"[Bighead] 目录已压缩为：{zipPath}");
+            return zipPath;
         }
 
         /// <summary>

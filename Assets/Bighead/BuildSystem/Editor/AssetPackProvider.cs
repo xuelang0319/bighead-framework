@@ -21,6 +21,7 @@ namespace Bighead.BuildSystem.Editor
                 AssetDatabase.SaveAssets();
                 Debug.Log($"[Bighead] 创建新的 AssetPackSO 配置文件: {AssetPath}");
             }
+
             return so;
         }
 
@@ -38,6 +39,7 @@ namespace Bighead.BuildSystem.Editor
                 AssetDatabase.DeleteAsset(AssetPath);
                 AssetDatabase.SaveAssets();
             }
+
             return LoadOrCreate();
         }
 
@@ -94,9 +96,11 @@ namespace Bighead.BuildSystem.Editor
                             Reset();
                         }
                     }
+
                     EditorGUILayout.EndHorizontal();
 
                     GUILayout.Space(10);
+                    DrawDeploySection(setting);
                     DrawBuildSection(setting);
 
                     soObj.ApplyModifiedProperties();
@@ -152,6 +156,7 @@ namespace Bighead.BuildSystem.Editor
                     MarkSettingDirtyAndSave(setting);
                     GUIUtility.ExitGUI();
                 }
+
                 GUI.backgroundColor = Color.white;
 
                 if (EditorGUI.EndChangeCheck())
@@ -207,6 +212,7 @@ namespace Bighead.BuildSystem.Editor
                         MarkSettingDirtyAndSave(setting);
                     }
                 }
+
                 evt.Use();
             }
         }
@@ -287,6 +293,88 @@ namespace Bighead.BuildSystem.Editor
             {
                 AssetPackPipeline.OpenOutputFolder();
             }
+        }
+
+        // ======================= 部署区（勾选 + IP/Port/Token） =======================
+        private static string _tempToken = string.Empty; // 临时存储 Token，不持久化
+        public static string TempToken => _tempToken;
+
+        private static void DrawDeploySection(AssetPackSO setting)
+        {
+            EditorGUILayout.Space();
+            EditorGUILayout.LabelField("部署配置", EditorStyles.boldLabel);
+
+            EditorGUI.BeginChangeCheck();
+            setting.Deploy.SyncUpload = EditorGUILayout.ToggleLeft("同步服务器", setting.Deploy.SyncUpload);
+            if (EditorGUI.EndChangeCheck())
+                MarkSettingDirtyAndSave(setting);
+
+            if (!setting.Deploy.SyncUpload) return;
+
+            EditorGUI.indentLevel++;
+
+            // —— 解析 IP -> 4段 —— 
+            var ipParts = new int[4];
+            if (!string.IsNullOrEmpty(setting.Deploy.ServerAddress))
+            {
+                var split = setting.Deploy.ServerAddress.Split('.');
+                for (int i = 0; i < Mathf.Min(4, split.Length); i++)
+                    int.TryParse(split[i], out ipParts[i]);
+            }
+
+            // 用一个包裹盒子看起来更规整
+            EditorGUILayout.BeginVertical(GUI.skin.box);
+            EditorGUILayout.BeginHorizontal();
+
+            EditorGUILayout.LabelField("IP / Port", GUILayout.Width(70));
+
+            // IP 四段 + 点号
+            for (int i = 0; i < 4; i++)
+            {
+                string controlName = $"IPField{i}";
+                GUI.SetNextControlName(controlName);
+
+                int oldValue = ipParts[i];
+                int newValue = EditorGUILayout.IntField(oldValue, GUILayout.MinWidth(30), GUILayout.MaxWidth(50));
+
+                if (newValue > 255)
+                {
+                    newValue = oldValue;
+                    if (i < 3)
+                    {
+                        GUI.FocusControl($"IPField{i + 1}");
+                        EditorApplication.delayCall += () =>
+                        {
+                            TextEditor te =
+                                (TextEditor)GUIUtility.GetStateObject(typeof(TextEditor), GUIUtility.keyboardControl);
+                            te?.SelectAll();
+                        };
+                    }
+                }
+
+                ipParts[i] = newValue;
+                if (i < 3) GUILayout.Label(".", GUILayout.Width(10));
+            }
+
+            GUILayout.Space(8);
+            setting.Deploy.Port = EditorGUILayout.IntField(setting.Deploy.Port, GUILayout.Width(60));
+
+            GUILayout.FlexibleSpace();
+            EditorGUILayout.EndHorizontal();
+            EditorGUILayout.EndVertical();
+
+            // 写回 ServerAddress
+            string newIP = $"{ipParts[0]}.{ipParts[1]}.{ipParts[2]}.{ipParts[3]}";
+            if (newIP != setting.Deploy.ServerAddress)
+            {
+                setting.Deploy.ServerAddress = newIP;
+                MarkSettingDirtyAndSave(setting);
+            }
+
+            // Token 输入
+            _tempToken = EditorGUILayout.PasswordField("Token", _tempToken);
+
+            EditorGUI.indentLevel--;
         }
     }
 }
