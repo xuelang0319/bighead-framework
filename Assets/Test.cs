@@ -7,21 +7,53 @@ using UnityEngine.AddressableAssets;
 
 public class Test : MonoBehaviour
 {
-    private async void Awake()
+    private void Awake()
     {
+        Debug.LogError($"{nameof(Test)} Awake");
+        Step();
+        /*await Main();
+        Debug.LogError($"Execute Finished");*/
+    }
+
+    private async void Step()
+    {
+        await Run();
+        Debug.Log("Addressables 初始化完成");
+
+        // Step 2: 更新Catalog（可选）
+        await UpdateCatalog();
+        Debug.Log("Catalog 更新完成");
+
+        // Step 3: 加载关键资源或场景
         var handle = Addressables.InstantiateAsync("Assets/Test/Cube.prefab");
         handle.WaitForCompletion();
         handle = Addressables.InstantiateAsync("Assets/Test/GameObject.prefab");
         handle.WaitForCompletion();
         Debug.Log($"Instantiated: {handle.Result.name}");
-        /*await Main();
-        Debug.LogError($"Execute Finished");*/
     }
 
-    private async UniTask Main()
+    private async UniTask Run()
     {
-        string url = "http://120.26.192.253:8080/test.txt";
-        string savePath = "C:/Temp/test.txt";
+        // Step 1: 初始化 Addressables
+        var initHandle = Addressables.InitializeAsync();
+        await initHandle.Task;
+    }
+
+    private async UniTask UpdateCatalog()
+    {
+        var checkHandle = Addressables.CheckForCatalogUpdates(false);
+        var catalogs = await checkHandle.Task;
+        if (catalogs.Count > 0)
+        {
+            var updateHandle = Addressables.UpdateCatalogs(catalogs);
+            await updateHandle.Task;
+        }
+    }
+
+    /*private async UniTask Main()
+    {
+        string url = "http://120.26.192.253:8080/StandaloneWindows64/catalog_0.1.json";
+        string savePath = "C:/Temp/catalog_0.1.json";
 
         using var client = new HttpClient();
         try
@@ -45,5 +77,5 @@ public class Test : MonoBehaviour
         {
             Debug.LogError($"[Client] Download failed: {ex.Message}");
         }
-    }
+    }*/
 }
