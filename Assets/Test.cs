@@ -17,6 +17,15 @@ public class Test : MonoBehaviour
 
     private async void Step()
     {
+        Addressables.InternalIdTransformFunc = (location) =>
+        {
+            string url = location.InternalId;
+            url = url.Replace("8080", $"8081");
+            Debug.LogError($"URL: " + url);
+
+            return url;
+        };
+        
         await Run();
         Debug.Log("Addressables 初始化完成");
 

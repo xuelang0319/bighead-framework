@@ -17,6 +17,12 @@ MonoBehaviour:
   Entries:
   - Path: Assets/Resources/BillingMode.json
     SelectedLabels: []
+  - Path: Assets/Bighead/BuildSystem/Configs
+    SelectedLabels: []
+  - Path: Assets/Bighead/BuildSystem/Data
+    SelectedLabels: []
+  - Path: Assets/Bighead/BuildSystem/Editor
+    SelectedLabels: []
   Deploy:
     ServerAddress: 120.26.192.253
     Port: 8081
