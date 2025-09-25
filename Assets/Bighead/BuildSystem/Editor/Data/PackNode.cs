@@ -1,5 +1,6 @@
 ﻿#if UNITY_EDITOR
 using System.Collections.Generic;
+using UnityEditor.AddressableAssets.Settings;
 
 namespace Bighead.BuildSystem.Editor
 {
@@ -8,8 +9,19 @@ namespace Bighead.BuildSystem.Editor
     /// </summary>
     public abstract class PackNode
     {
-        public string Name;   // 节点名称
-        public string Path;   // Asset 相对路径
+        public string Name;
+        public string Path;
+        public bool IsInGroup;   // ✅ 表示是否是 Addressables entry
+    }
+    
+    /// <summary>
+    /// Addressables 组节点（根级管理单元）
+    /// </summary>
+    public sealed class PackGroupNode : PackNode
+    {
+        public AddressableAssetGroup GroupRef;          // 真实 Addressable 组
+        public bool IsExpanded = true;                  // UI 展开状态
+        public List<PackNode> Children = new();         // 可含 Folder/File
     }
 
     /// <summary>

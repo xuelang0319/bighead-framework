@@ -4,37 +4,69 @@ using UnityEngine;
 
 namespace Bighead.BuildSystem.Editor
 {
-    /// <summary>Pack 面板 Section，入口类</summary>
+    /// <summary>
+    /// 主面板 Section：显示 Addressable Group 和节点树，并处理拖拽、右键操作
+    /// </summary>
     public class PackSection
     {
         private readonly PackNodeService _service;
         private readonly PackNodeRenderer _renderer;
         private readonly PackDragHandler _dragHandler;
-        private Vector2 _scroll;
 
         public PackSection()
         {
             _service = new PackNodeService();
-            _renderer = new PackNodeRenderer();
-            _dragHandler = new PackDragHandler(_service);
+            _renderer = new PackNodeRenderer(OnAddNode, OnRemoveNode);
+            _dragHandler = new PackDragHandler(OnDragPerform);
+
+            _service.OnTreeReloaded += Repaint;
+            _service.OnNodeRemoved += (n, g) => Repaint();
         }
 
-        public void Draw()
+        public void OnGUI()
         {
-            using (new EditorGUILayout.VerticalScope())
+            // Header
+            EditorGUILayout.Space();
+            using (new EditorGUILayout.HorizontalScope(EditorStyles.helpBox))
             {
-                EditorGUILayout.LabelField("Pack Nodes", EditorStyles.boldLabel);
-                GUILayout.Space(4);
-
-                using (var scrollScope = new EditorGUILayout.ScrollViewScope(_scroll))
+                EditorGUILayout.LabelField("Addressable Groups", EditorStyles.boldLabel);
+                if (GUILayout.Button("刷新", GUILayout.Width(60)))
                 {
-                    _scroll = scrollScope.scrollPosition;
-                    _renderer.DrawTree(_service.Roots);
+                    _service.Reload();
+                    GUI.FocusControl(null);
                 }
-
-                GUILayout.Space(6);
-                _dragHandler.DrawDragArea();
             }
+
+            // 树渲染
+            EditorGUILayout.Space();
+            _renderer.DrawTree(_service.Groups);
+
+            // 拖拽区域
+            _dragHandler.HandleDragArea();
+        }
+
+        private void OnAddNode(string path, PackGroupNode group)
+        {
+            _service.AddNode(path, group);
+        }
+
+        private void OnRemoveNode(PackNode node, PackGroupNode group)
+        {
+            _service.RemoveNode(node, group);
+        }
+
+        private void OnDragPerform(string[] draggedPaths, PackGroupNode targetGroup)
+        {
+            if (draggedPaths == null || draggedPaths.Length == 0 || targetGroup == null)
+                return;
+
+            foreach (var path in draggedPaths)
+                _service.AddNode(path, targetGroup);
+        }
+
+        private void Repaint()
+        {
+            EditorWindow.focusedWindow?.Repaint();
         }
     }
 }

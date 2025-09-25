@@ -1,81 +1,49 @@
 ﻿#if UNITY_EDITOR
+using System;
 using System.Collections.Generic;
-using System.Linq;
 using UnityEditor;
 
 namespace Bighead.BuildSystem.Editor
 {
-    /// <summary>管理 PackNode 树的服务层</summary>
     public class PackNodeService
     {
-        private readonly List<PackFolderNode> _roots = new List<PackFolderNode>();
+        private readonly PackNodeRepository _repo = new PackNodeRepository();
+        private readonly List<PackGroupNode> _groups = new List<PackGroupNode>();
 
-        public IReadOnlyList<PackFolderNode> Roots => _roots;
+        public IReadOnlyList<PackGroupNode> Groups => _groups;
 
-        /// <summary>添加文件或文件夹路径到根节点</summary>
-        public void AddPath(string path)
+        public event Action OnTreeReloaded;
+        public event Action<PackNode, PackGroupNode> OnNodeRemoved;
+
+        public PackNodeService()
         {
-            if (_roots.Any(r => r.Path == path)) return; // 去重
-
-            if (AssetDatabase.IsValidFolder(path))
-            {
-                var folderNode = new PackFolderNode
-                {
-                    Name = System.IO.Path.GetFileName(path),
-                    Path = path
-                };
-                FillFolderChildren(folderNode);
-                _roots.Add(folderNode);
-            }
-            else
-            {
-                var rootNode = new PackFolderNode
-                {
-                    Name = System.IO.Path.GetFileNameWithoutExtension(path),
-                    Path = path
-                };
-                rootNode.Children.Add(new PackFileNode
-                {
-                    Name = System.IO.Path.GetFileName(path),
-                    Path = path
-                });
-                _roots.Add(rootNode);
-            }
+            Reload();
         }
 
-        /// <summary>递归填充文件夹子节点</summary>
-        private void FillFolderChildren(PackFolderNode folderNode)
+        public void Reload()
         {
-            var guids = AssetDatabase.FindAssets("", new[] { folderNode.Path });
-            foreach (var guid in guids)
-            {
-                var childPath = AssetDatabase.GUIDToAssetPath(guid);
-                if (childPath == folderNode.Path) continue;
-
-                if (AssetDatabase.IsValidFolder(childPath))
-                {
-                    var childFolder = new PackFolderNode
-                    {
-                        Name = System.IO.Path.GetFileName(childPath),
-                        Path = childPath
-                    };
-                    FillFolderChildren(childFolder);
-                    folderNode.Children.Add(childFolder);
-                }
-                else
-                {
-                    folderNode.Children.Add(new PackFileNode
-                    {
-                        Name = System.IO.Path.GetFileName(childPath),
-                        Path = childPath
-                    });
-                }
-            }
+            _groups.Clear();
+            _groups.AddRange(_repo.LoadAllGroups());
+            OnTreeReloaded?.Invoke();
         }
 
-        public void RemoveRoot(PackFolderNode node)
+        public void AddNode(string path, PackGroupNode targetGroup)
         {
-            _roots.Remove(node);
+            if (string.IsNullOrEmpty(path) || targetGroup?.GroupRef == null) return;
+            _repo.AddPathToGroup(path, targetGroup.GroupRef);
+            Reload();
+        }
+
+        public void RemoveNode(PackNode node, PackGroupNode fromGroup)
+        {
+            if (node == null || fromGroup?.GroupRef == null) return;
+            if (node is PackFileNode)
+                _repo.RemoveFile(node.Path, fromGroup.GroupRef);
+            else if (node is PackFolderNode)
+                _repo.RemoveFolder(node.Path, fromGroup.GroupRef);
+
+            Reload();
+            OnNodeRemoved?.Invoke(node, fromGroup);
         }
     }
 }
