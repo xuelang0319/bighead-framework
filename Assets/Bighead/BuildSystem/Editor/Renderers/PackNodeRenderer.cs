@@ -1,165 +1,107 @@
 ﻿#if UNITY_EDITOR
-using System;
 using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
 
 namespace Bighead.BuildSystem.Editor
 {
-    /// <summary>
-    /// 递归渲染：Group → Folder*(递归) / File
-    /// - 所有层级文件夹都有 Foldout
-    /// - 名称 + 路径 两列
-    /// - IsInGroup=false 用灰色样式显示（未加入 Addressables）
-    /// </summary>
     public class PackNodeRenderer
     {
-        private readonly Action<string, PackGroupNode> _onAddNode;
-        private readonly Action<PackNode, PackGroupNode> _onRemoveNode;
+        public event System.Action<PackGroup> OnDeleteGroup;
+        public event System.Action<PackGroup, PackEntry> OnDeleteEntry;
+        public event System.Action<PackGroup, PackEntry> OnRowClicked;
 
-        public PackNodeRenderer(Action<string, PackGroupNode> onAddNode,
-                                Action<PackNode, PackGroupNode> onRemoveNode)
-        {
-            _onAddNode = onAddNode;
-            _onRemoveNode = onRemoveNode;
-        }
+        private const float IndentPerLevel = 14f;
+        private const float DeleteButtonWidth = 18f;
+        private static readonly Color NormalRowColor = new Color(0.85f, 0.85f, 0.85f, 0.03f);
+        private static readonly Color HoverRowColor = new Color(0.3f, 0.5f, 0.9f, 0.15f);
+        private static readonly Color SelectedRowColor = new Color(0.2f, 0.4f, 0.7f, 0.3f);
 
-        public void DrawTree(IReadOnlyList<PackGroupNode> groups)
+        public void DrawGroups(List<PackGroup> groups, PackNodeInteractionController controller)
         {
             if (groups == null) return;
-            foreach (var g in groups) DrawGroup(g);
+            foreach (var g in groups)
+                DrawGroup(g, 0, controller);
         }
 
-        private void DrawGroup(PackGroupNode group)
+        private void DrawGroup(PackGroup group, int depth, PackNodeInteractionController controller)
         {
-            var row = EditorGUILayout.GetControlRect();
-            group.IsExpanded = EditorGUI.Foldout(row, group.IsExpanded, group.Name, true);
+            Rect rowRect = EditorGUILayout.GetControlRect(false, EditorGUIUtility.singleLineHeight);
 
-            // 双击：打开 Addressables Groups 并选中该组
-            if (Event.current.type == EventType.MouseDown &&
-                Event.current.clickCount == 2 &&
-                row.Contains(Event.current.mousePosition))
-            {
-                EditorApplication.ExecuteMenuItem("Window/Asset Management/Addressables/Groups");
-                if (group.GroupRef != null)
-                {
-                    EditorGUIUtility.PingObject(group.GroupRef);
-                    Selection.activeObject = group.GroupRef;
-                }
-                Event.current.Use();
-            }
+            controller.UpdateHover(rowRect, group);
 
-            if (!group.IsExpanded) return;
+            DrawRowBackground(rowRect, controller.IsHovering(group), controller.IsSelected(group));
 
-            EditorGUI.indentLevel++;
-            if (group.Children != null)
-            {
-                foreach (var c in group.Children)
-                    DrawNode(c, group);
-            }
-            EditorGUI.indentLevel--;
+            HandleRowClick(rowRect, group, null, controller);
+
+            GUI.BeginGroup(rowRect);
+            float x = depth * IndentPerLevel;
+
+            // 折叠箭头和名称
+            Rect foldoutRect = new Rect(x, 0, rowRect.width - DeleteButtonWidth, rowRect.height);
+            group.IsExpanded = EditorGUI.Foldout(foldoutRect, group.IsExpanded, group.Name, true);
+
+            // 删除按钮
+            Rect deleteRect = new Rect(rowRect.xMax - DeleteButtonWidth - rowRect.x, 0, DeleteButtonWidth, rowRect.height);
+            if (GUI.Button(deleteRect, EditorGUIUtility.IconContent("TreeEditor.Trash"), GUIStyle.none))
+                OnDeleteGroup?.Invoke(group);
+
+            GUI.EndGroup();
+
+            if (group.IsExpanded)
+                foreach (var entry in group.Children)
+                    DrawEntry(group, entry, depth + 1, controller);
         }
 
-        private void DrawNode(PackNode node, PackGroupNode ownerGroup)
+        private void DrawEntry(PackGroup parent, PackEntry entry, int depth, PackNodeInteractionController controller)
         {
-            if (node is PackFolderNode folder)
-                DrawFolderRow(folder, ownerGroup);
-            else if (node is PackFileNode file)
-                DrawFileRow(file, ownerGroup);
+            Rect rowRect = EditorGUILayout.GetControlRect(false, EditorGUIUtility.singleLineHeight);
+
+            controller.UpdateHover(rowRect, parent, entry);
+
+            DrawRowBackground(rowRect, controller.IsHovering(parent, entry), controller.IsSelected(parent, entry));
+
+            HandleRowClick(rowRect, parent, entry, controller);
+
+            GUI.BeginGroup(rowRect);
+            float x = depth * IndentPerLevel;
+
+            Rect nameRect = new Rect(x, 0, rowRect.width - DeleteButtonWidth, rowRect.height);
+            if (entry.Children != null && entry.Children.Count > 0)
+                entry.IsExpanded = EditorGUI.Foldout(nameRect, entry.IsExpanded, entry.Name, true);
+            else
+                EditorGUI.LabelField(nameRect, entry.Name);
+
+            Rect deleteRect = new Rect(rowRect.xMax - DeleteButtonWidth - rowRect.x, 0, DeleteButtonWidth, rowRect.height);
+            if (GUI.Button(deleteRect, EditorGUIUtility.IconContent("TreeEditor.Trash"), GUIStyle.none))
+                OnDeleteEntry?.Invoke(parent, entry);
+
+            GUI.EndGroup();
+
+            if (entry.IsExpanded && entry.Children != null)
+                foreach (var child in entry.Children)
+                    DrawEntry(parent, child, depth + 1, controller);
         }
 
-        private void DrawFolderRow(PackFolderNode folder, PackGroupNode ownerGroup)
+        private void DrawRowBackground(Rect rect, bool hover, bool selected)
         {
-            var rowRect = EditorGUILayout.GetControlRect();
-            float total = rowRect.width;
-            float nameW = Mathf.Min(total * 0.4f, 360f);
-            float pathW = total - nameW - 8f;
-
-            var nameRect = new Rect(rowRect.x, rowRect.y, nameW, rowRect.height);
-            var pathRect = new Rect(nameRect.xMax + 8f, rowRect.y, pathW, rowRect.height);
-
-            // 名称列用 Foldout
-            var labelContent = new GUIContent(folder.Name, folder.Path);
-            var nameStyle = folder.IsInGroup ? EditorStyles.foldout : EditorStyles.foldout; // 统一控件，颜色靠路径列区分
-            folder.IsExpanded = EditorGUI.Foldout(nameRect, folder.IsExpanded, labelContent, true);
-
-            // 路径列
-            var pathStyle = folder.IsInGroup ? EditorStyles.miniLabel : EditorStyles.miniLabel;
-            using (new EditorGUI.DisabledScope(!folder.IsInGroup))
+            if (Event.current.type == EventType.Repaint)
             {
-                // 灰色表现：未加入的我们用 DisabledScope + miniLabel（也可自定义颜色）
-                EditorGUI.LabelField(pathRect, new GUIContent(folder.Path, folder.Path), pathStyle);
-            }
-
-            // 右键菜单
-            if (Event.current.type == EventType.ContextClick && rowRect.Contains(Event.current.mousePosition))
-            {
-                var menu = new GenericMenu();
-                menu.AddItem(new GUIContent("复制路径"), false, () => EditorGUIUtility.systemCopyBuffer = folder.Path);
-                menu.AddItem(new GUIContent("在资源管理器中显示"), false, () => EditorUtility.RevealInFinder(folder.Path));
-                menu.AddSeparator("");
-
-                if (folder.IsInGroup)
-                    menu.AddItem(new GUIContent("从该组移除（仅移除该文件夹 entry）"), false, () => _onRemoveNode?.Invoke(folder, ownerGroup));
+                if (selected)
+                    EditorGUI.DrawRect(rect, SelectedRowColor);
+                else if (hover)
+                    EditorGUI.DrawRect(rect, HoverRowColor);
                 else
-                    menu.AddItem(new GUIContent("加入该组（将此文件夹作为 entry）"), false, () => _onAddNode?.Invoke(folder.Path, ownerGroup));
-
-                menu.ShowAsContext();
-                Event.current.Use();
-            }
-
-            // 递归子节点
-            if (folder.IsExpanded && folder.Children != null && folder.Children.Count > 0)
-            {
-                EditorGUI.indentLevel++;
-                foreach (var child in folder.Children)
-                    DrawNode(child, ownerGroup);
-                EditorGUI.indentLevel--;
+                    EditorGUI.DrawRect(rect, NormalRowColor);
             }
         }
 
-        private void DrawFileRow(PackFileNode file, PackGroupNode ownerGroup)
+        private void HandleRowClick(Rect rect, PackGroup group, PackEntry entry, PackNodeInteractionController controller)
         {
-            var rowRect = EditorGUILayout.GetControlRect();
-            float total = rowRect.width;
-            float nameW = Mathf.Min(total * 0.4f, 360f);
-            float pathW = total - nameW - 8f;
-
-            var nameRect = new Rect(rowRect.x, rowRect.y, nameW, rowRect.height);
-            var pathRect = new Rect(nameRect.xMax + 8f, rowRect.y, pathW, rowRect.height);
-
-            var nameStyle = file.IsInGroup ? EditorStyles.label : EditorStyles.miniLabel;
-            EditorGUI.LabelField(nameRect, new GUIContent(file.Name, file.Path), nameStyle);
-            EditorGUI.LabelField(pathRect, new GUIContent(file.Path, file.Path), EditorStyles.miniLabel);
-
-            // 双击 Ping
-            if (Event.current.type == EventType.MouseDown &&
-                Event.current.clickCount == 2 &&
-                rowRect.Contains(Event.current.mousePosition))
+            if (Event.current.type == EventType.MouseDown && rect.Contains(Event.current.mousePosition) && Event.current.button == 0)
             {
-                var obj = AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(file.Path);
-                if (obj != null)
-                {
-                    EditorGUIUtility.PingObject(obj);
-                    Selection.activeObject = obj;
-                }
-                Event.current.Use();
-            }
-
-            // 右键菜单
-            if (Event.current.type == EventType.ContextClick && rowRect.Contains(Event.current.mousePosition))
-            {
-                var menu = new GenericMenu();
-                menu.AddItem(new GUIContent("复制路径"), false, () => EditorGUIUtility.systemCopyBuffer = file.Path);
-                menu.AddItem(new GUIContent("在资源管理器中显示"), false, () => EditorUtility.RevealInFinder(file.Path));
-                menu.AddSeparator("");
-
-                if (file.IsInGroup)
-                    menu.AddItem(new GUIContent("从该组移除"), false, () => _onRemoveNode?.Invoke(file, ownerGroup));
-                else
-                    menu.AddItem(new GUIContent("加入该组"), false, () => _onAddNode?.Invoke(file.Path, ownerGroup));
-
-                menu.ShowAsContext();
+                controller.Select(group, entry);
+                OnRowClicked?.Invoke(group, entry);
                 Event.current.Use();
             }
         }

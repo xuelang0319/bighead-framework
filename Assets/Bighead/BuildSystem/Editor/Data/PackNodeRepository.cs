@@ -1,249 +1,148 @@
 ﻿#if UNITY_EDITOR
-using System;
 using System.Collections.Generic;
-using System.Linq;
 using UnityEditor;
 using UnityEditor.AddressableAssets;
 using UnityEditor.AddressableAssets.Settings;
+using UnityEditor.AddressableAssets.Settings.GroupSchemas;
+using UnityEngine;
 
 namespace Bighead.BuildSystem.Editor
 {
     public class PackNodeRepository
     {
-        private readonly AddressableAssetSettings _settings;
+        private AddressableAssetSettings _settings => AddressableAssetSettingsDefaultObject.Settings;
 
-        public PackNodeRepository()
+        public List<PackGroup> LoadAllGroups()
         {
-            _settings = AddressableAssetSettingsDefaultObject.Settings;
-        }
-
-        public List<PackGroupNode> LoadAllGroups()
-        {
-            var result = new List<PackGroupNode>();
+            var result = new List<PackGroup>();
             if (_settings == null) return result;
 
-            foreach (var group in _settings.groups)
+            foreach (var settingGroup in _settings.groups)
             {
-                if (group == null) continue;
-                // 内置组不纳入可管理范围
-                if (group.Name == "Builtin Data") continue;
-
-                var groupNode = new PackGroupNode
+                if (settingGroup == null || settingGroup.name == "Builtin Data") continue;
+                var packGroup = new PackGroup
                 {
-                    Name = group.Name,
-                    Path = group.Name,
-                    GroupRef = group,
+                    Name = settingGroup.Name,
+                    GroupRef = settingGroup,
                     IsExpanded = true,
-                    IsInGroup = true
+                    Children = new List<PackEntry>()
                 };
 
-                // 本组全部 entry 路径（统一分隔符）
-                var entryPaths = group.entries
-                    .Where(e => !string.IsNullOrEmpty(e.AssetPath))
-                    .Select(e => e.AssetPath.Replace('\\', '/'))
-                    .ToList();
-
-                var entrySet = new HashSet<string>(entryPaths);
-
-                // 分离“文件夹 entry”与“文件 entry”
-                var folderEntries = entryPaths.Where(p => AssetDatabase.IsValidFolder(p))
-                                              .OrderBy(p => p.Length).ToList();
-                var fileEntries   = entryPaths.Where(p => !AssetDatabase.IsValidFolder(p)).ToList();
-
-                // 仅选择“顶层文件夹 entry”（不被其他文件夹 entry 覆盖）
-                var topFolderEntries = new List<string>();
-                foreach (var p in folderEntries)
+                foreach (var entry in settingGroup.entries)
                 {
-                    bool nested = topFolderEntries.Any(root => IsUnder(p, root));
-                    if (!nested) topFolderEntries.Add(p);
+                    var packEntry = RecursionEntry(entry);
+                    if (packEntry != null)
+                        packGroup.Children.Add(packEntry);
                 }
 
-                // 先构建每个顶层文件夹 entry 的完整树（递归、无限层级）
-                foreach (var rootPath in topFolderEntries)
-                {
-                    var rootFolder = new PackFolderNode
-                    {
-                        Name = System.IO.Path.GetFileName(rootPath),
-                        Path = rootPath,
-                        IsExpanded = false,
-                        IsInGroup = true
-                    };
-                    groupNode.Children.Add(rootFolder);
-
-                    BuildFolderTree(rootFolder, rootPath, entrySet);
-                }
-
-                // 再把“不在任何文件夹 entry 覆盖范围内”的文件 entry 放到组根下
-                foreach (var fp in fileEntries)
-                {
-                    bool underAnyRoot = topFolderEntries.Any(root => IsUnder(fp, root));
-                    if (!underAnyRoot)
-                    {
-                        groupNode.Children.Add(new PackFileNode
-                        {
-                            Name = System.IO.Path.GetFileName(fp),
-                            Path = fp,
-                            IsInGroup = true
-                        });
-                    }
-                }
-
-                result.Add(groupNode);
+                result.Add(packGroup);
             }
 
             return result;
         }
 
-        /// <summary>
-        /// 在 folderEntry 的范围内，按磁盘真实结构递归构建树；
-        /// 对于“也是 Addressables entry”的子文件/子文件夹，标记 IsInGroup=true。
-        /// </summary>
-        private void BuildFolderTree(PackFolderNode rootNode, string rootPath, HashSet<string> entrySet)
+        private PackEntry RecursionEntry(AddressableAssetEntry assetEntry)
         {
-            // 路径 → 已建 FolderNode
-            var folderMap = new Dictionary<string, PackFolderNode>(StringComparer.OrdinalIgnoreCase)
+            if (string.IsNullOrEmpty(assetEntry.AssetPath)) return null;
+
+            var packEntry = new PackEntry
             {
-                [Normalize(rootPath)] = rootNode
+                Name = System.IO.Path.GetFileName(assetEntry.AssetPath),
+                EntryRef = assetEntry,
+                Children = new List<PackEntry>(),
+                IsExpanded = false
             };
 
-            // 收集根下所有资源路径（含子文件夹 & 文件），再按深度排序，保证父在前
-            var guids = AssetDatabase.FindAssets(string.Empty, new[] { rootPath });
-            var allPaths = new List<string>(guids.Length);
-            foreach (var guid in guids)
+            if (assetEntry.SubAssets != null)
             {
-                var p = Normalize(AssetDatabase.GUIDToAssetPath(guid));
-                if (p == rootPath) continue;
-                allPaths.Add(p);
-            }
-            allPaths.Sort((a, b) => Depth(a).CompareTo(Depth(b)));
-
-            foreach (var path in allPaths)
-            {
-                if (AssetDatabase.IsValidFolder(path))
+                foreach (var subEntry in assetEntry.SubAssets)
                 {
-                    // 确保父链存在后创建该文件夹
-                    EnsureFolder(folderMap, rootNode, rootPath, path, entrySet);
-                }
-                else
-                {
-                    // 文件：确保父文件夹存在，再挂到父节点下
-                    var parentDir = ParentDir(path);
-                    var parent = EnsureFolder(folderMap, rootNode, rootPath, parentDir, entrySet);
-                    parent.Children.Add(new PackFileNode
-                    {
-                        Name = System.IO.Path.GetFileName(path),
-                        Path = path,
-                        IsInGroup = entrySet.Contains(path)
-                    });
+                    var subPackEntry = RecursionEntry(subEntry);
+                    if (subPackEntry != null)
+                        packEntry.Children.Add(subPackEntry);
                 }
             }
+
+            return packEntry;
         }
 
-        private static PackFolderNode EnsureFolder(
-            Dictionary<string, PackFolderNode> map,
-            PackFolderNode rootNode,
-            string rootPath,
-            string folderPath,
-            HashSet<string> entrySet)
+        // ========== 新增的接口 ==========
+
+        /// <summary> 新建 Addressable Group </summary>
+        public PackGroup AddGroup(string name, bool setAsDefault = false)
         {
-            folderPath = Normalize(folderPath);
-            rootPath   = Normalize(rootPath);
-
-            if (map.TryGetValue(folderPath, out var node)) return node;
-
-            // 自 rootPath 起，逐级保证链路存在
-            string relative = folderPath.StartsWith(rootPath, StringComparison.OrdinalIgnoreCase)
-                ? folderPath.Substring(rootPath.Length).TrimStart('/')
-                : folderPath; // 容错
-
-            var parts = relative.Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
-            string currentPath = rootPath;
-            PackFolderNode parent = map[rootPath];
-
-            for (int i = 0; i < parts.Length; i++)
+            if (_settings == null)
             {
-                currentPath = string.IsNullOrEmpty(currentPath) ? parts[i] : $"{currentPath}/{parts[i]}";
-                if (!map.TryGetValue(currentPath, out var f))
-                {
-                    f = new PackFolderNode
-                    {
-                        Name = parts[i],
-                        Path = currentPath,
-                        IsExpanded = false,
-                        IsInGroup = entrySet.Contains(currentPath)
-                    };
-                    parent.Children.Add(f);
-                    map[currentPath] = f;
-                }
-                parent = f;
+                Debug.LogError("AddressableAssetSettings is null, cannot add group.");
+                return null;
             }
 
-            return map[folderPath];
-        }
-
-        private static bool IsUnder(string path, string folder)
-        {
-            path = Normalize(path);
-            folder = Normalize(folder).TrimEnd('/');
-            return path.StartsWith(folder + "/", StringComparison.OrdinalIgnoreCase);
-        }
-
-        private static string Normalize(string p) => string.IsNullOrEmpty(p) ? p : p.Replace('\\', '/');
-        private static int Depth(string p) => Normalize(p).Count(c => c == '/');
-        private static string ParentDir(string p)
-        {
-            p = Normalize(p);
-            int idx = p.LastIndexOf('/');
-            return idx > 0 ? p.Substring(0, idx) : string.Empty;
-        }
-
-        // ====== 写入 / 移除 ======
-
-        public void AddPathToGroup(string path, AddressableAssetGroup group)
-        {
-            if (_settings == null || group == null || string.IsNullOrEmpty(path)) return;
-
-            string guid = AssetDatabase.AssetPathToGUID(path.Replace('\\', '/'));
-            if (string.IsNullOrEmpty(guid)) return;
-
-            _settings.CreateOrMoveEntry(guid, group);
-            EditorUtility.SetDirty(group);
-            EditorUtility.SetDirty(_settings);
+            var group = _settings.CreateGroup(name, setAsDefault, false, false, null, typeof(BundledAssetGroupSchema));
             AssetDatabase.SaveAssets();
+
+            return new PackGroup
+            {
+                Name = group.Name,
+                GroupRef = group,
+                IsExpanded = true,
+                Children = new List<PackEntry>()
+            };
         }
 
-        public void RemoveFile(string path, AddressableAssetGroup expectedGroup)
+        /// <summary> 删除 Addressable Group </summary>
+        public bool RemoveGroup(PackGroup group)
         {
-            if (_settings == null || string.IsNullOrEmpty(path)) return;
+            if (_settings == null || group?.GroupRef == null) return false;
 
-            string guid = AssetDatabase.AssetPathToGUID(path.Replace('\\', '/'));
-            if (string.IsNullOrEmpty(guid)) return;
+            if (!EditorUtility.DisplayDialog("删除分组", $"确定要删除分组 {group.Name} 吗？", "删除", "取消"))
+                return false;
 
-            // 全局定位 entry，避免“期望组不一致”导致找不到
-            var entry = _settings.FindAssetEntry(guid);
-            if (entry == null) return;
-
-            var g = entry.parentGroup;
-            g.RemoveAssetEntry(entry);
-            EditorUtility.SetDirty(g);
-            EditorUtility.SetDirty(_settings);
+            Undo.RegisterCompleteObjectUndo(_settings, "Remove Addressable Group");
+            _settings.RemoveGroup(group.GroupRef);
             AssetDatabase.SaveAssets();
+            return true;
         }
 
-        public void RemoveFolder(string folderPath, AddressableAssetGroup group)
+        /// <summary> 向 Group 添加资源 </summary>
+        public PackEntry AddEntry(PackGroup parent, string assetPath)
         {
-            if (_settings == null || group == null || string.IsNullOrEmpty(folderPath)) return;
+            if (parent?.GroupRef == null || string.IsNullOrEmpty(assetPath)) return null;
 
-            string guid = AssetDatabase.AssetPathToGUID(folderPath.Replace('\\', '/'));
-            if (string.IsNullOrEmpty(guid)) return;
+            string guid = AssetDatabase.AssetPathToGUID(assetPath);
+            if (string.IsNullOrEmpty(guid))
+            {
+                Debug.LogError($"无效路径: {assetPath}");
+                return null;
+            }
 
-            var entry = group.GetAssetEntry(guid);
-            if (entry == null) return;
-
-            group.RemoveAssetEntry(entry);
-            EditorUtility.SetDirty(group);
-            EditorUtility.SetDirty(_settings);
+            Undo.RegisterCompleteObjectUndo(_settings, "Add Addressable Entry");
+            var entryRef = _settings.CreateOrMoveEntry(guid, parent.GroupRef);
             AssetDatabase.SaveAssets();
+
+            var newEntry = new PackEntry
+            {
+                Name = System.IO.Path.GetFileName(assetPath),
+                EntryRef = entryRef,
+                Children = new List<PackEntry>(),
+                IsExpanded = false
+            };
+            parent.Children.Add(newEntry);
+            return newEntry;
+        }
+
+        /// <summary> 删除 Entry </summary>
+        public bool RemoveEntry(PackGroup parent, PackEntry entry)
+        {
+            if (parent?.GroupRef == null || entry?.EntryRef == null) return false;
+
+            if (!EditorUtility.DisplayDialog("删除资源", $"确定要删除资源 {entry.Name} 吗？", "删除", "取消"))
+                return false;
+
+            Undo.RegisterCompleteObjectUndo(_settings, "Remove Addressable Entry");
+            parent.GroupRef.RemoveAssetEntry(entry.EntryRef);
+            parent.Children.Remove(entry);
+            AssetDatabase.SaveAssets();
+            return true;
         }
     }
 }

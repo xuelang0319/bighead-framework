@@ -36,7 +36,7 @@ namespace Bighead.BuildSystem.Editor
             // 顶部标题 + 版本号
             _headerSection?.Draw();
             GUILayout.Space(8);
-            _packSection?.OnGUI();
+            _packSection?.Draw();
 
             // 未来：平台选择、路径显示、构建按钮都可以继续调用各自的 Draw()
         }
