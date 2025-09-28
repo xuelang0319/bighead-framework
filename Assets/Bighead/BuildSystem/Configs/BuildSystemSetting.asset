@@ -15,7 +15,7 @@ MonoBehaviour:
   BuildPath: BuildOutput
   LocalLoadPath: BuildOutput
   Mode: 0
-  SelectedPlatforms: 13000000
+  SelectedPlatforms: 0d00000013000000
   SyncConfig:
     Enable: 0
     DownloadPath: http://your.cdn.server

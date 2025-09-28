@@ -15,7 +15,7 @@ MonoBehaviour:
   m_DefaultGroup: 18513c108fc08524783b161f8320b456
   m_currentHash:
     serializedVersion: 2
-    Hash: 00000000000000000000000000000000
+    Hash: cc557a419e7961389cff7e40fbed9f79
   m_OptimizeCatalogSize: 0
   m_BuildRemoteCatalog: 1
   m_BundleLocalCatalog: 1
@@ -39,8 +39,8 @@ MonoBehaviour:
   m_RemoteCatalogLoadPath:
     m_Id: 24f6cf6e20aaa8742a1dbc7f7ee12f53
   m_ContentStateBuildPathProfileVariableName: <default settings path>
-  m_CustomContentStateBuildPath: 
-  m_ContentStateBuildPath: 
+  m_CustomContentStateBuildPath: '[Bighead.ContentStatePath]'
+  m_ContentStateBuildPath: '[Bighead.ContentStatePath]'
   m_BuildAddressablesWithPlayerBuild: 0
   m_overridePlayerVersion: '[UnityEditor.PlayerSettings.bundleVersion]'
   m_GroupAssets:
@@ -70,6 +70,8 @@ MonoBehaviour:
         m_Value: '[UnityEngine.AddressableAssets.Addressables.BuildPath]/[BuildTarget]'
       - m_Id: cbac88325ae226e47ae0c18c716e01ce
         m_Value: BuildOutput\StandaloneWindows64\1.0.1
+      - m_Id: d497bc8898736234487ab8e4814da4e9
+        m_Value: BuildOutput\StandaloneWindows64\1.0.1
       - m_Id: e270f59275bf9f64ca4827404fc1782e
         m_Value: BuildOutput/StandaloneWindows64
       - m_Id: e8ae3ace8c41079489e4543e27f3016c
@@ -94,6 +96,9 @@ MonoBehaviour:
       m_InlineUsage: 0
     - m_Id: cbac88325ae226e47ae0c18c716e01ce
       m_Name: Bighead.BuildPath
+      m_InlineUsage: 0
+    - m_Id: d497bc8898736234487ab8e4814da4e9
+      m_Name: Bighead.ContentStatePath
       m_InlineUsage: 0
     - m_Id: e270f59275bf9f64ca4827404fc1782e
       m_Name: BuildPath
