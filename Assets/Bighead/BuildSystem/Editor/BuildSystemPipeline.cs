@@ -1,7 +1,7 @@
 ﻿#if UNITY_EDITOR
 using System;
 using System.IO;
-using System.Reflection;
+using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 using UnityEditor;
 using UnityEditor.AddressableAssets;
@@ -13,14 +13,13 @@ using UnityEngine;
 namespace Bighead.BuildSystem.Editor
 {
     /// <summary>
-    /// Addressables 全量/增量构建管线（稳定版 + 极小增强）
+    /// Addressables 全量/增量构建管线（队列分帧版：稳定且改动极小）
     /// - 每平台独立 BuildPath / ContentState（.bin 直出到平台/版本目录）
-    /// - 动态解析 Profile 真实 BuildPath（不写死 Library/aa）
     /// - Remote Catalog 打开并与 Build/LoadPath 变量一致（满足增量校验）
     /// - 不在循环中 Refresh / 多次 SaveAssets / 每平台弹资源管理器
-    /// - 仅在整轮结束后 SaveAssets 一次并打开根目录
-    /// - 增量构建若命中 “BuildLayout header” 异常：让出 1 帧后仅重试一次
-    /// - 在构建前通过反射尽量开启 SBP 的 WriteBuildLayout（若版本无该属性则忽略）
+    /// - 用 EditorApplication.delayCall 将“多平台连续构建”拆成多个 Editor 回合，每次只跑一个平台
+    /// - 仅当增量命中 “BuildLayout header” 时，下一帧重试一次
+    /// - 整轮结束后 SaveAssets 一次并打开根目录
     /// </summary>
     public static class BuildSystemPipeline
     {
@@ -28,47 +27,86 @@ namespace Bighead.BuildSystem.Editor
         private const string kLoadVar         = "Bighead.LoadPath";
         private const string kContentStateVar = "Bighead.ContentStatePath";
 
-        public static async UniTask RunAsync(BuildSystemSetting setting, BuildConfigSection section = null)
+        // --- 构建队列管理（关键：避免同一 Editor 回合内连续触发 SBP） ---
+        private static readonly Queue<BuildTarget> _queue = new Queue<BuildTarget>();
+        private static bool _running;
+        private static BuildSystemSetting _settingSnapshot;
+        private static BuildConfigSection _sectionSnapshot;
+
+        public static UniTask RunAsync(BuildSystemSetting setting, BuildConfigSection section = null)
         {
-            if (setting?.SelectedPlatforms == null || setting.SelectedPlatforms.Length == 0)
+            // 快照当前参数，避免在UI侧被修改影响队列一致性
+            _settingSnapshot = setting;
+            _sectionSnapshot = section;
+
+            _queue.Clear();
+            if (setting?.SelectedPlatforms != null)
+                foreach (var p in setting.SelectedPlatforms) _queue.Enqueue(p);
+
+            if (_queue.Count == 0)
             {
                 Debug.LogWarning("[BuildSystemPipeline] 未选择平台，已取消。");
+                return UniTask.CompletedTask;
+            }
+
+            if (_running)
+            {
+                Debug.LogWarning("[BuildSystemPipeline] 上一轮构建尚未结束。");
+                return UniTask.CompletedTask;
+            }
+
+            _running = true;
+
+            // 关键：把处理放到“下一次编辑器更新”里开始，避免与当前 UI 回合交错
+            EditorApplication.delayCall += ProcessNext;
+            return UniTask.CompletedTask;
+        }
+
+        private static void ProcessNext()
+        {
+            if (_queue.Count == 0)
+            {
+                // 整轮结束：仅此处保存一次并打开根目录
+                AssetDatabase.SaveAssets();
+                string rootFullPath = Path.GetFullPath(Path.Combine(Application.dataPath, "..", _settingSnapshot.BuildPath));
+                if (Directory.Exists(rootFullPath))
+                    EditorUtility.RevealInFinder(rootFullPath);
+
+                _running = false;
+                Debug.Log("[BuildSystemPipeline] 多平台构建完成。");
                 return;
             }
 
-            foreach (var platform in setting.SelectedPlatforms)
-            {
-                // 1) 切换平台（等待切换完成）
-                await SwitchPlatformAsync(platform);
+            var platform = _queue.Dequeue();
+            BuildOneAsync(platform).Forget();
 
-                // 2) 平台 + 版本（用于 Profile 变量）
-                string version           = PlayerSettings.bundleVersion;
-                string platformBuildPath = Path.Combine(setting.BuildPath, platform.ToString(), version);
-                string platformLoadPath  = setting.SyncConfig.Enable
-                    ? Path.Combine(setting.SyncConfig.DownloadPath, platform.ToString(), version)
-                    : platformBuildPath;
-
-                // 3) 写入变量、绑定分组、设置 ContentState 输出位置与 RemoteCatalog（仅标脏，不保存/刷新）
-                ApplyOutputConfig(platformBuildPath, platformLoadPath);
-
-                // 4) 执行当前平台构建
-                await ExecuteAsync(setting.Mode, platformBuildPath, platformLoadPath, section, setting.BuildPath, platform);
-            }
-
-            // 整轮结束：统一保存一次，并打开根目录
-            AssetDatabase.SaveAssets();
-
-            string rootFullPath = Path.GetFullPath(Path.Combine(Application.dataPath, "..", setting.BuildPath));
-            if (Directory.Exists(rootFullPath))
-                EditorUtility.RevealInFinder(rootFullPath);
+            // 下一平台同样放到下一次 Editor 回合，避免连环触发
+            EditorApplication.delayCall += ProcessNext;
         }
 
-        private static async UniTask SwitchPlatformAsync(BuildTarget platform)
+        // --- 单个平台构建 ---
+        private static async UniTask BuildOneAsync(BuildTarget platform)
         {
-            if (EditorUserBuildSettings.activeBuildTarget == platform) return;
-            var group = UnityEditor.BuildPipeline.GetBuildTargetGroup(platform);
-            EditorUserBuildSettings.SwitchActiveBuildTarget(group, platform);
-            await UniTask.WaitUntil(() => EditorUserBuildSettings.activeBuildTarget == platform);
+            // 1) 切换平台（等待切换完成）
+            if (EditorUserBuildSettings.activeBuildTarget != platform)
+            {
+                var group = UnityEditor.BuildPipeline.GetBuildTargetGroup(platform);
+                EditorUserBuildSettings.SwitchActiveBuildTarget(group, platform);
+                await UniTask.WaitUntil(() => EditorUserBuildSettings.activeBuildTarget == platform);
+            }
+
+            // 2) 平台 + 版本（用于 Profile 变量）
+            string version           = PlayerSettings.bundleVersion;
+            string platformBuildPath = Path.Combine(_settingSnapshot.BuildPath, platform.ToString(), version);
+            string platformLoadPath  = _settingSnapshot.SyncConfig.Enable
+                ? Path.Combine(_settingSnapshot.SyncConfig.DownloadPath, platform.ToString(), version)
+                : platformBuildPath;
+
+            // 3) 写入变量、绑定分组、设置 ContentState 输出位置与 RemoteCatalog（仅标脏，不保存/刷新）
+            ApplyOutputConfig(platformBuildPath, platformLoadPath);
+
+            // 4) 执行构建
+            await ExecuteAsync(_settingSnapshot.Mode, platformBuildPath, platformLoadPath, _sectionSnapshot, _settingSnapshot.BuildPath, platform);
         }
 
         /// <summary>
@@ -163,9 +201,6 @@ namespace Bighead.BuildSystem.Editor
             // Content State 文件实际位置（由 settings.ContentStateBuildPath 决定）
             string contentStatePath = UnityEditor.AddressableAssets.Build.ContentUpdateScript.GetContentStateDataPath(false);
 
-            // ★ 构建前：尽量开启 SBP 的 WriteBuildLayout（反射，若无则忽略，避免编译错误）
-            TryEnableWriteBuildLayout();
-
             Debug.Log($"[BuildSystemPipeline] 开始构建: {mode} | 平台={platform}\n" +
                       $" - BuildPath(变量)   = {buildPath}\n" +
                       $" - BuildPath(解析)   = {evaluatedBuildPath}\n" +
@@ -202,7 +237,7 @@ namespace Bighead.BuildSystem.Editor
                     var (ok, retryable) = TryBuildContentUpdateOnce(settings, contentStatePath, platform);
                     if (!ok && retryable)
                     {
-                        // 若命中 BuildLayout header，下一帧仅重试一次（不做额外延时/刷新）
+                        // 仅在命中 BuildLayout header 时，下一帧重试一次（不做额外延时/刷新）
                         await UniTask.NextFrame();
                         (ok, _) = TryBuildContentUpdateOnce(settings, contentStatePath, platform);
                     }
@@ -216,34 +251,6 @@ namespace Bighead.BuildSystem.Editor
             {
                 // 保持让步，避免阻塞 UI；不在这里打开资源管理器
                 await UniTask.Yield();
-            }
-        }
-
-        /// <summary>
-        /// 反射尝试开启 SBP 的 WriteBuildLayout；不同版本类名/程序集名可能不同。
-        /// 不存在则静默忽略，避免编译错误。
-        /// </summary>
-        private static void TryEnableWriteBuildLayout()
-        {
-            try
-            {
-                // 常见的两个程序集名称尝试
-                var type =
-                    Type.GetType("UnityEditor.Build.Pipeline.ContentBuildInterface, UnityEditor.BuildPipelineModule") ??
-                    Type.GetType("UnityEditor.Build.Pipeline.ContentBuildInterface, UnityEditor.Build.Pipeline");
-
-                if (type == null) return;
-
-                var prop = type.GetProperty("WriteBuildLayout", BindingFlags.Public | BindingFlags.Static);
-                if (prop != null && prop.PropertyType == typeof(bool) && prop.CanWrite)
-                {
-                    prop.SetValue(null, true);
-                    Debug.Log("[BuildSystemPipeline] WriteBuildLayout 已启用（反射）");
-                }
-            }
-            catch
-            {
-                // 忽略：不同版本无该属性时不影响后续流程
             }
         }
 

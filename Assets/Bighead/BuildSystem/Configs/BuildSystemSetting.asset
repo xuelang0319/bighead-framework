@@ -14,8 +14,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   BuildPath: BuildOutput
   LocalLoadPath: BuildOutput
-  Mode: 0
-  SelectedPlatforms: 0d00000013000000
+  Mode: 1
+  SelectedPlatforms: 0d0000001300000009000000
   SyncConfig:
     Enable: 0
     DownloadPath: http://your.cdn.server

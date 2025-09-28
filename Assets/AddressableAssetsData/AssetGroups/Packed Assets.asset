@@ -22,6 +22,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 589c655e181baac41940eaaeacf4d60e
+    m_Address: Assets/Bighead/unity-toolbar-extender/package.json
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 9898a0f409cccaf4baa713f5f7191eaa
     m_Address: Assets/BigheadCsv/Settings
     m_ReadOnly: 0
