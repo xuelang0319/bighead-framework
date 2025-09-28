@@ -7,9 +7,6 @@ using UnityEngine;
 
 namespace Bighead.BuildSystem.Editor
 {
-    /// <summary>
-    /// 构建配置面板：显示最终拼接路径，实时提示用户实际输出位置
-    /// </summary>
     public class BuildConfigSection
     {
         private readonly BuildSystemSetting _setting;
@@ -28,13 +25,7 @@ namespace Bighead.BuildSystem.Editor
 
         private bool CheckIncrementalAvailable()
         {
-            if (_setting?.SelectedPlatforms == null) return false;
-            if (_setting.SelectedPlatforms.Length == 0) return false;
-
-            string version = PlayerSettings.bundleVersion;
-            string buildPath = Path.Combine(_setting.BuildPath, _setting.SelectedPlatforms[0].ToString(), version);
-            string catalogPath = Path.Combine(buildPath, "catalog.json");
-            return File.Exists(catalogPath);
+            return true;
         }
 
         public void Draw()
@@ -50,10 +41,17 @@ namespace Bighead.BuildSystem.Editor
             GUILayout.Space(10);
             using (new EditorGUILayout.HorizontalScope())
             {
+                // 打开目录按钮
+                if (GUILayout.Button("打开输出目录", GUILayout.Width(120), GUILayout.Height(24)))
+                {
+                    OpenOutputDirectory();
+                }
+
                 GUILayout.FlexibleSpace();
+
                 if (GUILayout.Button("开始打包", GUILayout.Width(120), GUILayout.Height(26)))
                 {
-                    BuildSystemPipeline.RunAsync(_setting, this).Forget();
+                    EditorApplication.delayCall += () => BuildSystemPipeline.RunAsync(_setting, this).Forget();
                 }
             }
 
@@ -180,6 +178,39 @@ namespace Bighead.BuildSystem.Editor
             }
 
             EditorGUI.indentLevel--;
+        }
+
+        /// <summary>
+        /// 打开拼接后的输出目录：多平台时打开根路径，单平台时打开该平台版本目录
+        /// </summary>
+        private void OpenOutputDirectory()
+        {
+            string version = PlayerSettings.bundleVersion;
+
+            if (_setting.SelectedPlatforms == null || _setting.SelectedPlatforms.Length == 0)
+            {
+                Debug.LogWarning("[BuildConfigSection] 没有选择平台，无法打开输出目录。");
+                return;
+            }
+
+            // 多平台 → 打开根路径
+            if (_setting.SelectedPlatforms.Length > 1)
+            {
+                string rootPath = Path.GetFullPath(Path.Combine(Application.dataPath, "..", _setting.BuildPath));
+                if (Directory.Exists(rootPath))
+                    EditorUtility.RevealInFinder(rootPath);
+                else
+                    Debug.LogWarning($"[BuildConfigSection] 目录不存在: {rootPath}");
+                return;
+            }
+
+            // 单平台 → 打开该平台对应目录
+            string fullPath = Path.Combine(_setting.BuildPath, _setting.SelectedPlatforms[0].ToString(), version);
+            string resolvedFullPath = Path.GetFullPath(Path.Combine(Application.dataPath, "..", fullPath));
+            if (Directory.Exists(resolvedFullPath))
+                EditorUtility.RevealInFinder(resolvedFullPath);
+            else
+                Debug.LogWarning($"[BuildConfigSection] 目录不存在: {resolvedFullPath}");
         }
     }
 }
