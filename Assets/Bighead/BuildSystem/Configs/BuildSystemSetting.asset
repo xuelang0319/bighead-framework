@@ -12,13 +12,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 143de7a4894c42d1a051233caecee05d, type: 3}
   m_Name: BuildSystemSetting
   m_EditorClassIdentifier: 
+  BuildPath: BuildOutput
+  LocalLoadPath: BuildOutput
   Mode: 0
-  SelectedPlatforms: 0900000013000000
-  BuildPath: BuildOutput/{Platform}
-  LocalLoadPath: BuildOutput/{Platform}
+  SelectedPlatforms: 130000000d000000
   SyncConfig:
     Enable: 0
-    DownloadPath: http://127.0.0.1/Build/{Platform}
-    UploadPath: /var/www/cdn/Build/{Platform}
+    DownloadPath: http://your.cdn.server
+    UploadPath: D:/Server/Upload
     AuthToken: 
-    ExtraArgs: 

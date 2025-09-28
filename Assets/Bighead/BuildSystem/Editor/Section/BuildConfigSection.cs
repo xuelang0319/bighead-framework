@@ -1,19 +1,19 @@
 ﻿#if UNITY_EDITOR
+using System.IO;
+using System.Collections.Generic;
+using Cysharp.Threading.Tasks;
 using UnityEditor;
 using UnityEngine;
-using System.Collections.Generic;
-using System.IO;
 
 namespace Bighead.BuildSystem.Editor
 {
     /// <summary>
-    /// 构建配置界面 Section
-    /// 负责渲染构建模式、多平台选择、路径配置、同步服务器设置
+    /// 构建配置面板：显示最终拼接路径，实时提示用户实际输出位置
     /// </summary>
     public class BuildConfigSection
     {
         private readonly BuildSystemSetting _setting;
-        private bool _incrementalAvailable = true; // 外部可动态设置增量打包是否可用
+        private bool _incrementalAvailable = true;
 
         public BuildConfigSection(BuildSystemSetting setting)
         {
@@ -21,29 +21,22 @@ namespace Bighead.BuildSystem.Editor
             RefreshIncrementalAvailable();
         }
 
-        /// <summary>供外部调用手动刷新增量打包可用状态</summary>
         public void RefreshIncrementalAvailable()
         {
             _incrementalAvailable = CheckIncrementalAvailable();
         }
 
-        /// <summary>内部检查当前版本是否允许增量打包</summary>
         private bool CheckIncrementalAvailable()
         {
-            if (_setting == null) return false;
+            if (_setting?.SelectedPlatforms == null) return false;
+            if (_setting.SelectedPlatforms.Length == 0) return false;
 
-            var (buildPath, _) = _setting.GetAddressablePaths();
-            string currentVersion = PlayerSettings.bundleVersion;
-
-            string resolvedPath = buildPath
-                .Replace("{Platform}", EditorUserBuildSettings.activeBuildTarget.ToString())
-                .Replace("{Version}", currentVersion);
-
-            string catalogPath = Path.Combine(resolvedPath, "catalog.json");
+            string version = PlayerSettings.bundleVersion;
+            string buildPath = Path.Combine(_setting.BuildPath, _setting.SelectedPlatforms[0].ToString(), version);
+            string catalogPath = Path.Combine(buildPath, "catalog.json");
             return File.Exists(catalogPath);
         }
 
-        /// <summary>绘制 UI</summary>
         public void Draw()
         {
             if (_setting == null) return;
@@ -60,8 +53,7 @@ namespace Bighead.BuildSystem.Editor
                 GUILayout.FlexibleSpace();
                 if (GUILayout.Button("开始打包", GUILayout.Width(120), GUILayout.Height(26)))
                 {
-                    // 未来接入构建控制模块
-                    Debug.Log("[BuildSystem] 点击开始打包（待接入控制模块）");
+                    BuildSystemPipeline.RunAsync(_setting, this).Forget();
                 }
             }
 
@@ -69,11 +61,10 @@ namespace Bighead.BuildSystem.Editor
                 EditorUtility.SetDirty(_setting);
         }
 
-        // ---------------------- Addressables 快捷入口 ----------------------
         private void DrawAddressablesLink()
         {
             var rect = EditorGUILayout.GetControlRect(false, EditorGUIUtility.singleLineHeight);
-            var content = new GUIContent("Addressables 组（点击打开）");
+            var content = new GUIContent("打开 Addressables Groups");
             EditorGUI.LabelField(rect, content, EditorStyles.linkLabel);
             EditorGUIUtility.AddCursorRect(rect, MouseCursor.Link);
 
@@ -86,7 +77,6 @@ namespace Bighead.BuildSystem.Editor
             GUILayout.Space(6);
         }
 
-        // ---------------------- 构建模式选择 ----------------------
         private void DrawBuildModeSelector()
         {
             EditorGUILayout.LabelField("构建模式", EditorStyles.boldLabel);
@@ -109,15 +99,12 @@ namespace Bighead.BuildSystem.Editor
             }
 
             if (!_incrementalAvailable)
-            {
-                EditorGUILayout.HelpBox("当前版本尚未执行全量打包，无法启用增量打包。", MessageType.Info);
-            }
+                EditorGUILayout.HelpBox("当前平台/版本尚未执行过全量打包，无法启用增量打包。", MessageType.Info);
 
             EditorGUI.indentLevel--;
             GUILayout.Space(6);
         }
 
-        // ---------------------- 平台选择 ----------------------
         private static readonly BuildTarget[] kCommonTargets =
         {
             BuildTarget.StandaloneWindows64,
@@ -129,42 +116,69 @@ namespace Bighead.BuildSystem.Editor
         {
             EditorGUILayout.LabelField("平台选择", EditorStyles.boldLabel);
             EditorGUI.indentLevel++;
+
+            var list = (_setting.SelectedPlatforms != null && _setting.SelectedPlatforms.Length > 0)
+                ? new List<BuildTarget>(_setting.SelectedPlatforms)
+                : new List<BuildTarget>();
+
             foreach (var t in kCommonTargets)
             {
-                bool selected = _setting.SelectedPlatforms.Contains(t);
+                bool selected = list.Contains(t);
                 bool newSelected = EditorGUILayout.ToggleLeft(t.ToString(), selected);
-                if (newSelected && !selected) _setting.SelectedPlatforms.Add(t);
-                else if (!newSelected && selected) _setting.SelectedPlatforms.Remove(t);
+                if (newSelected && !selected) list.Add(t);
+                else if (!newSelected && selected) list.Remove(t);
             }
+
+            _setting.SelectedPlatforms = list.ToArray();
+
             EditorGUI.indentLevel--;
             GUILayout.Space(6);
         }
 
-        // ---------------------- BuildPath / LoadPath ----------------------
         private void DrawPaths()
         {
-            EditorGUILayout.LabelField("Addressables 路径", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField("输出路径设置", EditorStyles.boldLabel);
             EditorGUI.indentLevel++;
-            _setting.BuildPath = EditorGUILayout.TextField("Build Path", _setting.BuildPath);
-            _setting.LocalLoadPath = EditorGUILayout.TextField("Load Path (本地)", _setting.LocalLoadPath);
+
+            _setting.BuildPath = EditorGUILayout.TextField("根路径", _setting.BuildPath);
+            _setting.LocalLoadPath = EditorGUILayout.TextField("加载路径(本地)", _setting.LocalLoadPath);
+
+            // 实时显示拼接结果
+            if (_setting.SelectedPlatforms != null && _setting.SelectedPlatforms.Length > 0)
+            {
+                string version = PlayerSettings.bundleVersion;
+                foreach (var platform in _setting.SelectedPlatforms)
+                {
+                    string finalPath = Path.Combine(_setting.BuildPath, platform.ToString(), version);
+                    EditorGUILayout.HelpBox($"平台 {platform}: {finalPath}", MessageType.None);
+                }
+            }
+            else
+            {
+                EditorGUILayout.HelpBox("未选择平台，无法预览拼接结果", MessageType.Info);
+            }
+
             EditorGUI.indentLevel--;
             GUILayout.Space(6);
         }
 
-        // ---------------------- 同步服务器配置 ----------------------
         private void DrawSyncServerSection()
         {
             EditorGUILayout.LabelField("同步服务器", EditorStyles.boldLabel);
             EditorGUI.indentLevel++;
+
             _setting.SyncConfig.Enable = EditorGUILayout.ToggleLeft("启用", _setting.SyncConfig.Enable);
 
             if (_setting.SyncConfig.Enable)
             {
-                _setting.SyncConfig.DownloadPath = EditorGUILayout.TextField("下载路径 (LoadPath)", _setting.SyncConfig.DownloadPath);
-                _setting.SyncConfig.UploadPath = EditorGUILayout.TextField("上传路径", _setting.SyncConfig.UploadPath);
-                _setting.SyncConfig.AuthToken = EditorGUILayout.PasswordField("Token", _setting.SyncConfig.AuthToken);
-                _setting.SyncConfig.ExtraArgs = EditorGUILayout.TextField("附加参数", _setting.SyncConfig.ExtraArgs);
+                _setting.SyncConfig.DownloadPath =
+                    EditorGUILayout.TextField("下载路径", _setting.SyncConfig.DownloadPath);
+                _setting.SyncConfig.UploadPath =
+                    EditorGUILayout.TextField("上传路径", _setting.SyncConfig.UploadPath);
+                _setting.SyncConfig.AuthToken =
+                    EditorGUILayout.PasswordField("Token", _setting.SyncConfig.AuthToken);
             }
+
             EditorGUI.indentLevel--;
         }
     }

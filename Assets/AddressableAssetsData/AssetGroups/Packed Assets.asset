@@ -15,10 +15,10 @@ MonoBehaviour:
   m_GroupName: Packed Assets
   m_Data:
     m_SerializedData: []
-  m_GUID: b30b97c77fe619e4ab1cc40e57832d35
+  m_GUID: 57aaaaf5d54d65448b40d2175eaa913b
   m_SerializeEntries:
-  - m_GUID: ab9f357a44bbcaf4785bff0344f43d3e
-    m_Address: Assets/Bighead/Configs
+  - m_GUID: 9898a0f409cccaf4baa713f5f7191eaa
+    m_Address: Assets/BigheadCsv/Settings
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
