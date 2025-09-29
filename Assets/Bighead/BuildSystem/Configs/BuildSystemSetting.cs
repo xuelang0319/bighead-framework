@@ -1,4 +1,5 @@
 ﻿#if UNITY_EDITOR
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEditor;
 
@@ -16,11 +17,8 @@ namespace Bighead.BuildSystem.Editor
         [Header("构建模式")]
         public BuildMode Mode = BuildMode.FullBuild;
 
-        [Header("目标平台")]
-        public BuildTarget[] SelectedPlatforms = new[] { BuildTarget.StandaloneWindows64 };
-
-        [Header("服务器同步")]
-        public SyncServerConfig SyncConfig = new SyncServerConfig();
+        [Header("目标平台")] 
+        public List<BuildPlatformSetting> BuildPlatformSettings = new List<BuildPlatformSetting>();
 
         public static BuildSystemSetting GetOrCreateSettings()
         {
@@ -39,12 +37,12 @@ namespace Bighead.BuildSystem.Editor
     }
 
     [System.Serializable]
-    public class SyncServerConfig
+    public class BuildPlatformSetting
     {
-        public bool Enable = false;
-        public string DownloadPath = "http://your.cdn.server";
-        public string UploadPath   = "D:/Server/Upload";
-        public string AuthToken    = "";
+        [Header("打包平台")] public BuildTarget Platform = BuildTarget.NoTarget;
+        [Header("上传服务器")] public bool Upload2Server = false;
+        [Header("服务器地址")]public string ServerUrl;
+        [Header("服务器秘钥")]public string Secret;
     }
 
     public enum BuildMode

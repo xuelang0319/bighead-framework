@@ -28,20 +28,27 @@ namespace Bighead.BuildSystem.Editor
         private const string kContentStateVar = "Bighead.ContentStatePath";
 
         // --- 构建队列管理（关键：避免同一 Editor 回合内连续触发 SBP） ---
-        private static readonly Queue<BuildTarget> _queue = new Queue<BuildTarget>();
+        private static readonly Queue<BuildPlatformSetting> _queue = new Queue<BuildPlatformSetting>();
         private static bool _running;
         private static BuildSystemSetting _settingSnapshot;
         private static BuildConfigSection _sectionSnapshot;
 
+        // 修改字段
+
         public static UniTask RunAsync(BuildSystemSetting setting, BuildConfigSection section = null)
         {
-            // 快照当前参数，避免在UI侧被修改影响队列一致性
             _settingSnapshot = setting;
             _sectionSnapshot = section;
 
             _queue.Clear();
-            if (setting?.SelectedPlatforms != null)
-                foreach (var p in setting.SelectedPlatforms) _queue.Enqueue(p);
+            if (setting?.BuildPlatformSettings != null)
+            {
+                foreach (var p in setting.BuildPlatformSettings)
+                {
+                    if (p != null && p.Platform != BuildTarget.NoTarget)
+                        _queue.Enqueue(p);
+                }
+            }
 
             if (_queue.Count == 0)
             {
@@ -56,8 +63,6 @@ namespace Bighead.BuildSystem.Editor
             }
 
             _running = true;
-
-            // 关键：把处理放到“下一次编辑器更新”里开始，避免与当前 UI 回合交错
             EditorApplication.delayCall += ProcessNext;
             return UniTask.CompletedTask;
         }
@@ -66,7 +71,6 @@ namespace Bighead.BuildSystem.Editor
         {
             if (_queue.Count == 0)
             {
-                // 整轮结束：仅此处保存一次并打开根目录
                 AssetDatabase.SaveAssets();
                 string rootFullPath = Path.GetFullPath(Path.Combine(Application.dataPath, "..", _settingSnapshot.BuildPath));
                 if (Directory.Exists(rootFullPath))
@@ -77,17 +81,25 @@ namespace Bighead.BuildSystem.Editor
                 return;
             }
 
-            var platform = _queue.Dequeue();
-            BuildOneAsync(platform).Forget();
+            var platformSetting = _queue.Dequeue();
+            BuildOneAsync(_settingSnapshot, platformSetting).Forget();
 
-            // 下一平台同样放到下一次 Editor 回合，避免连环触发
+            // 下一平台同样放到下一次 Editor 回合
             EditorApplication.delayCall += ProcessNext;
         }
 
         // --- 单个平台构建 ---
-        private static async UniTask BuildOneAsync(BuildTarget platform)
+        private static async UniTask BuildOneAsync(BuildSystemSetting setting, BuildPlatformSetting platformSetting)
         {
-            // 1) 切换平台（等待切换完成）
+            if (platformSetting == null || platformSetting.Platform == BuildTarget.NoTarget)
+            {
+                Debug.LogError("[BuildSystemPipeline] 无效的 BuildPlatformSetting");
+                return;
+            }
+
+            var platform = platformSetting.Platform;
+
+            // 1. 切换平台
             if (EditorUserBuildSettings.activeBuildTarget != platform)
             {
                 var group = UnityEditor.BuildPipeline.GetBuildTargetGroup(platform);
@@ -95,19 +107,18 @@ namespace Bighead.BuildSystem.Editor
                 await UniTask.WaitUntil(() => EditorUserBuildSettings.activeBuildTarget == platform);
             }
 
-            // 2) 平台 + 版本（用于 Profile 变量）
+            // 2. 拼接路径
             string version           = PlayerSettings.bundleVersion;
-            string platformBuildPath = Path.Combine(_settingSnapshot.BuildPath, platform.ToString(), version);
-            string platformLoadPath  = _settingSnapshot.SyncConfig.Enable
-                ? Path.Combine(_settingSnapshot.SyncConfig.DownloadPath, platform.ToString(), version)
-                : platformBuildPath;
+            string platformBuildPath = Path.Combine(setting.BuildPath, platform.ToString(), version);
+            string platformLoadPath  = platformBuildPath; // 不再使用全局 SyncConfig
 
-            // 3) 写入变量、绑定分组、设置 ContentState 输出位置与 RemoteCatalog（仅标脏，不保存/刷新）
+            // 3. 应用输出配置
             ApplyOutputConfig(platformBuildPath, platformLoadPath);
 
-            // 4) 执行构建
-            await ExecuteAsync(_settingSnapshot.Mode, platformBuildPath, platformLoadPath, _sectionSnapshot, _settingSnapshot.BuildPath, platform);
+            // 4. 执行构建
+            await ExecuteAsync(setting.Mode, platformBuildPath, platformLoadPath, null, setting.BuildPath, platform);
         }
+
 
         /// <summary>
         /// 写入（内存中）Profile 变量并绑定 Group Schema；不在此处调用 Refresh/SaveAssets。

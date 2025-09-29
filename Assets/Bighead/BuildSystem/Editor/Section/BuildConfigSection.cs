@@ -3,6 +3,7 @@ using System.IO;
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 using UnityEditor;
+using UnityEditorInternal;
 using UnityEngine;
 
 namespace Bighead.BuildSystem.Editor
@@ -11,10 +12,12 @@ namespace Bighead.BuildSystem.Editor
     {
         private readonly BuildSystemSetting _setting;
         private bool _incrementalAvailable = true;
+        private ReorderableList _platformList;
 
         public BuildConfigSection(BuildSystemSetting setting)
         {
             _setting = setting;
+            InitPlatformList();
             RefreshIncrementalAvailable();
         }
 
@@ -29,20 +32,99 @@ namespace Bighead.BuildSystem.Editor
             return true;
         }
 
+        private void InitPlatformList()
+        {
+            if (_setting.BuildPlatformSettings == null)
+                _setting.BuildPlatformSettings = new List<BuildPlatformSetting>();
+
+            _platformList = new ReorderableList(_setting.BuildPlatformSettings, typeof(BuildPlatformSetting), true, true, true, true);
+
+            _platformList.drawHeaderCallback = rect =>
+            {
+                EditorGUI.LabelField(rect, "目标平台配置");
+            };
+
+            _platformList.drawElementCallback = (rect, index, isActive, isFocused) =>
+            {
+                if (index < 0 || index >= _setting.BuildPlatformSettings.Count)
+                    return;
+
+                var element = _setting.BuildPlatformSettings[index];
+                float lineHeight = EditorGUIUtility.singleLineHeight;
+                float padding = 2f;
+
+                // 第一行：平台选择 + 上传开关
+                Rect line1 = new Rect(rect.x, rect.y + padding, rect.width, lineHeight);
+                float halfWidth = rect.width * 0.5f;
+
+                Rect platformRect = new Rect(line1.x, line1.y, halfWidth - 5, lineHeight);
+                Rect uploadRect   = new Rect(line1.x + halfWidth, line1.y, halfWidth, lineHeight);
+
+                element.Platform = (BuildTarget)EditorGUI.EnumPopup(platformRect, "平台", element.Platform);
+                element.Upload2Server = EditorGUI.ToggleLeft(uploadRect, "上传到服务器", element.Upload2Server);
+
+                // 第二行：服务器地址 + 秘钥（仅当 Upload2Server = true）
+                if (element.Upload2Server)
+                {
+                    Rect line2 = new Rect(rect.x, line1.y + lineHeight + padding, rect.width, lineHeight);
+
+                    float labelWidth = 60;
+                    float fieldWidth = (rect.width - labelWidth * 2 - 10) / 2;
+
+                    Rect urlLabelRect = new Rect(line2.x, line2.y, labelWidth, lineHeight);
+                    Rect urlFieldRect = new Rect(urlLabelRect.xMax, line2.y, fieldWidth, lineHeight);
+                    Rect secretLabelRect = new Rect(urlFieldRect.xMax + 5, line2.y, labelWidth, lineHeight);
+                    Rect secretFieldRect = new Rect(secretLabelRect.xMax, line2.y, fieldWidth, lineHeight);
+
+                    EditorGUI.LabelField(urlLabelRect, "服务器");
+                    element.ServerUrl = EditorGUI.TextField(urlFieldRect, element.ServerUrl);
+
+                    EditorGUI.LabelField(secretLabelRect, "秘钥");
+                    element.Secret = EditorGUI.PasswordField(secretFieldRect, element.Secret);
+                }
+            };
+
+            // 动态高度：Upload2Server = true 时增加一行高度
+            _platformList.elementHeightCallback = index =>
+            {
+                if (index < 0 || index >= _setting.BuildPlatformSettings.Count)
+                    return EditorGUIUtility.singleLineHeight + 4;
+
+                var element = _setting.BuildPlatformSettings[index];
+                float baseHeight = EditorGUIUtility.singleLineHeight + 4;
+                if (element.Upload2Server)
+                    baseHeight += EditorGUIUtility.singleLineHeight + 4;
+
+                return baseHeight;
+            };
+
+            _platformList.onAddCallback = list =>
+            {
+                _setting.BuildPlatformSettings.Add(new BuildPlatformSetting { Platform = BuildTarget.NoTarget });
+            };
+
+            _platformList.onRemoveCallback = list =>
+            {
+                if (list.index >= 0 && list.index < _setting.BuildPlatformSettings.Count)
+                    _setting.BuildPlatformSettings.RemoveAt(list.index);
+            };
+        }
+
         public void Draw()
         {
             if (_setting == null) return;
 
             DrawAddressablesLink();
             DrawBuildModeSelector();
-            DrawPlatformSelector();
+
+            // 渲染目标平台配置
+            _platformList.DoLayoutList();
+
             DrawPaths();
-            DrawSyncServerSection();
 
             GUILayout.Space(10);
             using (new EditorGUILayout.HorizontalScope())
             {
-                // 打开目录按钮
                 if (GUILayout.Button("打开输出目录", GUILayout.Width(120), GUILayout.Height(24)))
                 {
                     OpenOutputDirectory();
@@ -104,98 +186,42 @@ namespace Bighead.BuildSystem.Editor
             GUILayout.Space(6);
         }
 
-        private static readonly BuildTarget[] kCommonTargets =
-        {
-            BuildTarget.StandaloneWindows64,
-            BuildTarget.Android,
-            BuildTarget.iOS
-        };
-
-        private void DrawPlatformSelector()
-        {
-            EditorGUILayout.LabelField("平台选择", EditorStyles.boldLabel);
-            EditorGUI.indentLevel++;
-
-            var list = (_setting.SelectedPlatforms != null && _setting.SelectedPlatforms.Length > 0)
-                ? new List<BuildTarget>(_setting.SelectedPlatforms)
-                : new List<BuildTarget>();
-
-            foreach (var t in kCommonTargets)
-            {
-                bool selected = list.Contains(t);
-                bool newSelected = EditorGUILayout.ToggleLeft(t.ToString(), selected);
-                if (newSelected && !selected) list.Add(t);
-                else if (!newSelected && selected) list.Remove(t);
-            }
-
-            _setting.SelectedPlatforms = list.ToArray();
-
-            EditorGUI.indentLevel--;
-            GUILayout.Space(6);
-        }
-
         private void DrawPaths()
         {
-            EditorGUILayout.LabelField("输出路径设置", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField("输出路径预览", EditorStyles.boldLabel);
             EditorGUI.indentLevel++;
 
-            _setting.BuildPath = EditorGUILayout.TextField("根路径", _setting.BuildPath);
-            _setting.LocalLoadPath = EditorGUILayout.TextField("加载路径(本地)", _setting.LocalLoadPath);
-
-            // 实时显示拼接结果
-            if (_setting.SelectedPlatforms != null && _setting.SelectedPlatforms.Length > 0)
+            if (_setting.BuildPlatformSettings != null && _setting.BuildPlatformSettings.Count > 0)
             {
                 string version = PlayerSettings.bundleVersion;
-                foreach (var platform in _setting.SelectedPlatforms)
+                foreach (var platformSetting in _setting.BuildPlatformSettings)
                 {
-                    string finalPath = Path.Combine(_setting.BuildPath, platform.ToString(), version);
-                    EditorGUILayout.HelpBox($"平台 {platform}: {finalPath}", MessageType.None);
+                    if (platformSetting.Platform == BuildTarget.NoTarget) continue;
+
+                    string finalPath = Path.Combine(_setting.BuildPath, platformSetting.Platform.ToString(), version);
+                    EditorGUILayout.HelpBox($"平台 {platformSetting.Platform}: {finalPath}", MessageType.None);
                 }
             }
             else
             {
-                EditorGUILayout.HelpBox("未选择平台，无法预览拼接结果", MessageType.Info);
+                EditorGUILayout.HelpBox("未添加平台，无法预览拼接结果", MessageType.Info);
             }
 
             EditorGUI.indentLevel--;
             GUILayout.Space(6);
         }
 
-        private void DrawSyncServerSection()
-        {
-            EditorGUILayout.LabelField("同步服务器", EditorStyles.boldLabel);
-            EditorGUI.indentLevel++;
-
-            _setting.SyncConfig.Enable = EditorGUILayout.ToggleLeft("启用", _setting.SyncConfig.Enable);
-
-            if (_setting.SyncConfig.Enable)
-            {
-                _setting.SyncConfig.DownloadPath =
-                    EditorGUILayout.TextField("下载路径", _setting.SyncConfig.DownloadPath);
-                _setting.SyncConfig.UploadPath =
-                    EditorGUILayout.TextField("上传路径", _setting.SyncConfig.UploadPath);
-                _setting.SyncConfig.AuthToken =
-                    EditorGUILayout.PasswordField("Token", _setting.SyncConfig.AuthToken);
-            }
-
-            EditorGUI.indentLevel--;
-        }
-
-        /// <summary>
-        /// 打开拼接后的输出目录：多平台时打开根路径，单平台时打开该平台版本目录
-        /// </summary>
         private void OpenOutputDirectory()
         {
             string version = PlayerSettings.bundleVersion;
 
-            if (_setting.SelectedPlatforms == null || _setting.SelectedPlatforms.Length == 0)
+            if (_setting.BuildPlatformSettings == null || _setting.BuildPlatformSettings.Count == 0)
             {
                 Debug.LogWarning("[BuildConfigSection] 没有选择平台，无法打开输出目录。");
                 return;
             }
 
-            // 多平台 → 打开根路径
-            if (_setting.SelectedPlatforms.Length > 1)
+            if (_setting.BuildPlatformSettings.Count > 1)
             {
                 string rootPath = Path.GetFullPath(Path.Combine(Application.dataPath, "..", _setting.BuildPath));
                 if (Directory.Exists(rootPath))
@@ -205,8 +231,8 @@ namespace Bighead.BuildSystem.Editor
                 return;
             }
 
-            // 单平台 → 打开该平台对应目录
-            string fullPath = Path.Combine(_setting.BuildPath, _setting.SelectedPlatforms[0].ToString(), version);
+            var platform = _setting.BuildPlatformSettings[0].Platform;
+            string fullPath = Path.Combine(_setting.BuildPath, platform.ToString(), version);
             string resolvedFullPath = Path.GetFullPath(Path.Combine(Application.dataPath, "..", fullPath));
             if (Directory.Exists(resolvedFullPath))
                 EditorUtility.RevealInFinder(resolvedFullPath);
