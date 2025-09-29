@@ -14,7 +14,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   BuildPath: BuildOutput
   LocalLoadPath: BuildOutput
-  Mode: 1
+  Mode: 0
+  ClientUploaderPath: FileTransferSolution/ClientUploader/bin/Debug/net6.0/ClientUploader.exe
   BuildPlatformSettings:
   - Platform: 19
     Upload2Server: 1

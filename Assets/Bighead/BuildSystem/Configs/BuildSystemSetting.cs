@@ -17,7 +17,10 @@ namespace Bighead.BuildSystem.Editor
         [Header("构建模式")]
         public BuildMode Mode = BuildMode.FullBuild;
 
-        [Header("目标平台")] 
+        [Header("上传工具路径（相对项目根目录）")]
+        public string ClientUploaderPath = "Tools/ClientUploader.exe";
+
+        [Header("目标平台")]
         public List<BuildPlatformSetting> BuildPlatformSettings = new List<BuildPlatformSetting>();
 
         public static BuildSystemSetting GetOrCreateSettings()
@@ -41,8 +44,8 @@ namespace Bighead.BuildSystem.Editor
     {
         [Header("打包平台")] public BuildTarget Platform = BuildTarget.NoTarget;
         [Header("上传服务器")] public bool Upload2Server = false;
-        [Header("服务器地址")]public string ServerUrl;
-        [Header("服务器秘钥")]public string Secret;
+        [Header("服务器地址")] public string ServerUrl;
+        [Header("服务器秘钥")] public string Secret;
     }
 
     public enum BuildMode

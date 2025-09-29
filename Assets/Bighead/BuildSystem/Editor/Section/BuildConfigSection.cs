@@ -117,6 +117,9 @@ namespace Bighead.BuildSystem.Editor
             DrawAddressablesLink();
             DrawBuildModeSelector();
 
+            // 上传器路径
+            DrawUploaderPath();
+
             // 渲染目标平台配置
             _platformList.DoLayoutList();
 
@@ -142,6 +145,42 @@ namespace Bighead.BuildSystem.Editor
                 EditorUtility.SetDirty(_setting);
         }
 
+        private void DrawUploaderPath()
+        {
+            EditorGUILayout.LabelField("上传工具设置", EditorStyles.boldLabel);
+            EditorGUILayout.BeginHorizontal();
+
+            _setting.ClientUploaderPath = EditorGUILayout.TextField("上传器相对路径", _setting.ClientUploaderPath);
+
+            if (GUILayout.Button("浏览...", GUILayout.Width(60)))
+            {
+                string projectRoot = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
+                string defaultFolder = projectRoot;
+
+                if (!string.IsNullOrEmpty(_setting.ClientUploaderPath))
+                {
+                    string absPath = Path.Combine(projectRoot, _setting.ClientUploaderPath);
+                    string absDir = Path.GetDirectoryName(absPath);
+                    if (Directory.Exists(absDir))
+                        defaultFolder = absDir;
+                }
+
+                string selected = EditorUtility.OpenFilePanel("选择上传工具", defaultFolder, "exe");
+                if (!string.IsNullOrEmpty(selected))
+                {
+                    // 始终转换成相对路径
+                    string relative = Path.GetRelativePath(projectRoot, selected)
+                        .Replace("\\", "/"); // 统一分隔符
+
+                    _setting.ClientUploaderPath = relative;
+                    Debug.Log($"[BuildConfigSection] 已设置上传工具路径：{relative}");
+                }
+            }
+
+            EditorGUILayout.EndHorizontal();
+            GUILayout.Space(6);
+        }
+        
         private void DrawAddressablesLink()
         {
             var rect = EditorGUILayout.GetControlRect(false, EditorGUIUtility.singleLineHeight);

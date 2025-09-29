@@ -107,18 +107,35 @@ namespace Bighead.BuildSystem.Editor
                 await UniTask.WaitUntil(() => EditorUserBuildSettings.activeBuildTarget == platform);
             }
 
-            // 2. 拼接路径
-            string version           = PlayerSettings.bundleVersion;
+            // 2. 路径拼接
+            string version = PlayerSettings.bundleVersion;
             string platformBuildPath = Path.Combine(setting.BuildPath, platform.ToString(), version);
-            string platformLoadPath  = platformBuildPath; // 不再使用全局 SyncConfig
+            string platformLoadPath = platformSetting.Upload2Server
+                ? platformSetting.ServerUrl
+                : Path.Combine(_settingSnapshot.LocalLoadPath, platform.ToString(), version);
 
-            // 3. 应用输出配置
             ApplyOutputConfig(platformBuildPath, platformLoadPath);
 
-            // 4. 执行构建
+            // 3. 执行构建
             await ExecuteAsync(setting.Mode, platformBuildPath, platformLoadPath, null, setting.BuildPath, platform);
-        }
 
+            // 4. 执行上传
+            if (platformSetting.Upload2Server)
+            {
+                string projectRoot = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
+                string exeFullPath = Path.Combine(projectRoot, setting.ClientUploaderPath);
+
+                if (!File.Exists(exeFullPath))
+                {
+                    Debug.LogWarning($"[BuildSystemPipeline] 上传工具未找到: {exeFullPath}");
+                    return;
+                }
+
+                Debug.Log($"[BuildSystemPipeline] 开始上传平台 {platform} 的打包结果...");
+                var executor = new UploadExecutor(exeFullPath, platformSetting.Secret);
+                executor.Upload(platformBuildPath, platformSetting.ServerUrl);
+            }
+        }
 
         /// <summary>
         /// 写入（内存中）Profile 变量并绑定 Group Schema；不在此处调用 Refresh/SaveAssets。
@@ -196,73 +213,48 @@ namespace Bighead.BuildSystem.Editor
             return Path.GetFullPath(Path.Combine(Application.dataPath, "..", evaluated));
         }
 
-        private static async UniTask ExecuteAsync(BuildMode mode, string buildPath, string loadPath, BuildConfigSection section, string rootBuildPath, BuildTarget platform)
+        private static async UniTask ExecuteAsync(
+            BuildMode mode, string buildPath, string loadPath,
+            BuildConfigSection section, string rootPath, BuildTarget platform)
         {
-            var settings = AddressableAssetSettingsDefaultObject.Settings;
-            if (settings == null)
+            Debug.Log($"[BuildSystemPipeline] 开始构建平台: {platform}, 模式: {mode}");
+            Debug.Log($"[BuildSystemPipeline] BuildPath={buildPath}, LoadPath={loadPath}");
+
+            try
             {
-                Debug.LogError("[BuildSystemPipeline] 找不到 AddressableAssetSettings");
-                return;
-            }
+                // 配置 Addressables Profile
+                AddressableAssetSettings.CleanPlayerContent(AddressableAssetSettingsDefaultObject.Settings.ActivePlayerDataBuilder);
 
-            // 真实 BuildPath（按当前 Profile 解析）
-            string evaluatedBuildPath = GetEvaluatedBuildPath(settings);
-            Directory.CreateDirectory(evaluatedBuildPath);
-
-            // Content State 文件实际位置（由 settings.ContentStateBuildPath 决定）
-            string contentStatePath = UnityEditor.AddressableAssets.Build.ContentUpdateScript.GetContentStateDataPath(false);
-
-            Debug.Log($"[BuildSystemPipeline] 开始构建: {mode} | 平台={platform}\n" +
-                      $" - BuildPath(变量)   = {buildPath}\n" +
-                      $" - BuildPath(解析)   = {evaluatedBuildPath}\n" +
-                      $" - ContentState(.bin)= {contentStatePath}");
-
-            bool buildSuccess = false;
-
-            switch (mode)
-            {
-                case BuildMode.FullBuild:
+                // 这里是关键：捕获构建异常
+                try
                 {
                     AddressableAssetSettings.BuildPlayerContent();
-
-                    if (File.Exists(contentStatePath))
-                        Debug.Log($"[BuildSystemPipeline] 平台 {platform} Content State 生成完成");
-                    else
-                        Debug.LogWarning($"[BuildSystemPipeline] 平台 {platform} 未找到 Content State 文件，增量可能不可用");
-
-                    section?.RefreshIncrementalAvailable();
-                    Debug.Log($"[BuildSystemPipeline] 平台 {platform} 全量打包完成");
-                    buildSuccess = true;
-                    break;
+                    Debug.Log("[BuildSystemPipeline] Addressables 构建完成 ✅");
                 }
-
-                case BuildMode.Incremental:
+                catch (Exception ex)
                 {
-                    if (!File.Exists(contentStatePath))
+                    Debug.LogError($"[BuildSystemPipeline] Addressables 构建失败 ❌\n" +
+                                   $"Message: {ex.Message}\n" +
+                                   $"StackTrace:\n{ex.StackTrace}");
+
+                    // 如果有内层异常，打印出来
+                    if (ex.InnerException != null)
                     {
-                        Debug.LogError($"[BuildSystemPipeline] 平台 {platform} 缺少 Content State（{contentStatePath}），请先执行该平台的全量打包");
-                        break;
+                        Debug.LogError($"[BuildSystemPipeline] InnerException: {ex.InnerException.Message}\n" +
+                                       $"Inner Stack:\n{ex.InnerException.StackTrace}");
                     }
 
-                    // 第一次尝试
-                    var (ok, retryable) = TryBuildContentUpdateOnce(settings, contentStatePath, platform);
-                    if (!ok && retryable)
-                    {
-                        // 仅在命中 BuildLayout header 时，下一帧重试一次（不做额外延时/刷新）
-                        await UniTask.NextFrame();
-                        (ok, _) = TryBuildContentUpdateOnce(settings, contentStatePath, platform);
-                    }
-
-                    buildSuccess = ok;
-                    break;
+                    // 可以选择抛出让外层捕获，也可以直接 return 阻止后续流程
+                    throw;
                 }
             }
-
-            if (buildSuccess)
+            catch (Exception outerEx)
             {
-                // 保持让步，避免阻塞 UI；不在这里打开资源管理器
-                await UniTask.Yield();
+                Debug.LogError($"[BuildSystemPipeline] 构建过程中发生未捕获异常:\n{outerEx}");
+                throw;
             }
+
+            await UniTask.Yield(); // 保持异步一致
         }
 
         /// <summary>

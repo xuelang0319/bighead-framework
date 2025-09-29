@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="bf89364e-b6f0-433a-aec2-d207ed91602c" name="更改" comment="">
+      <change beforePath="$PROJECT_DIR$/../Assets/AddressableAssetsData/AddressableAssetSettings.asset" beforeDir="false" afterPath="$PROJECT_DIR$/../Assets/AddressableAssetsData/AddressableAssetSettings.asset" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../Assets/AddressableAssetsData/AssetGroups/Schemas/Packed Assets_BundledAssetGroupSchema.asset" beforeDir="false" afterPath="$PROJECT_DIR$/../Assets/AddressableAssetsData/AssetGroups/Schemas/Packed Assets_BundledAssetGroupSchema.asset" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../Assets/Bighead/BuildSystem/Configs/BuildSystemSetting.asset" beforeDir="false" afterPath="$PROJECT_DIR$/../Assets/Bighead/BuildSystem/Configs/BuildSystemSetting.asset" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../Assets/Bighead/BuildSystem/Configs/BuildSystemSetting.cs" beforeDir="false" afterPath="$PROJECT_DIR$/../Assets/Bighead/BuildSystem/Configs/BuildSystemSetting.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../Assets/Bighead/BuildSystem/Editor/BuildSystemPipeline.cs" beforeDir="false" afterPath="$PROJECT_DIR$/../Assets/Bighead/BuildSystem/Editor/BuildSystemPipeline.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../Assets/Bighead/BuildSystem/Editor/Section/BuildConfigSection.cs" beforeDir="false" afterPath="$PROJECT_DIR$/../Assets/Bighead/BuildSystem/Editor/Section/BuildConfigSection.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../BuildOutput/Android/1.0.1/addressables_content_state.bin" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../BuildOutput/Android/1.0.1/catalog_1.0.1.hash" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../BuildOutput/Android/1.0.1/catalog_1.0.1.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../BuildOutput/Android/1.0.1/packedassets_assets_all_da3e479285b6516df2779b3dc0b51316.bundle" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../BuildOutput/Android/1.0.1/packedassets_assets_all_f3e9161c3be9b5d76ea0ff4a1b406b9f.bundle" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../BuildOutput/StandaloneWindows64/1.0.1/addressables_content_state.bin" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../BuildOutput/StandaloneWindows64/1.0.1/catalog_1.0.1.hash" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../BuildOutput/StandaloneWindows64/1.0.1/catalog_1.0.1.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../BuildOutput/StandaloneWindows64/1.0.1/packedassets_assets_all_da3e479285b6516df2779b3dc0b51316.bundle" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../BuildOutput/StandaloneWindows64/1.0.1/packedassets_assets_all_f3e9161c3be9b5d76ea0ff4a1b406b9f.bundle" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../BuildOutput/iOS/1.0.1/addressables_content_state.bin" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../BuildOutput/iOS/1.0.1/catalog_1.0.1.hash" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../BuildOutput/iOS/1.0.1/catalog_1.0.1.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../BuildOutput/iOS/1.0.1/packedassets_assets_all_da3e479285b6516df2779b3dc0b51316.bundle" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../BuildOutput/iOS/1.0.1/packedassets_assets_all_f3e9161c3be9b5d76ea0ff4a1b406b9f.bundle" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../Packages/packages-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/../Packages/packages-lock.json" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/.." />
+  </component>
+  <component name="GitHubPullRequestSearchHistory">{
+  &quot;lastFilter&quot;: {
+    &quot;state&quot;: &quot;OPEN&quot;,
+    &quot;assignee&quot;: &quot;xuelang0319&quot;
+  }
+}</component>
+  <component name="GithubPullRequestsUISettings">{
+  &quot;selectedUrlAndAccountId&quot;: {
+    &quot;url&quot;: &quot;https://github.com/xuelang0319/bighead-framework.git&quot;,
+    &quot;accountId&quot;: &quot;f34bcba0-959d-4e6a-bc36-fbff25368c24&quot;
+  }
+}</component>
+  <component name="HighlightingSettingsPerFile">
+    <setting file="file://$PROJECT_DIR$/ClientUploader/Program.cs" root0="SKIP_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/ClientUploader/ProgressableStreamContent.cs" root0="SKIP_HIGHLIGHTING" />
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 4
+}</component>
+  <component name="ProjectId" id="33NZR0sPPi90cLwsPDBo9sCf4hu" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "git-widget-placeholder": "master",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "vue.rearranger.settings.migration": "true"
+  }
+}]]></component>
+  <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="应用程序级" UseSingleDictionary="true" transferred="true" />
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="默认任务">
+      <changelist id="bf89364e-b6f0-433a-aec2-d207ed91602c" name="更改" comment="" />
+      <created>1759159477326</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1759159477326</updated>
+      <workItem from="1759159478386" duration="40000" />
+      <workItem from="1759162645737" duration="709000" />
+    </task>
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+  <component name="UnityProjectConfiguration" hasMinimizedUI="false" />
+  <component name="VcsManagerConfiguration">
+    <option name="CLEAR_INITIAL_COMMIT_MESSAGE" value="true" />
+  </component>
+</project>
