@@ -28,7 +28,7 @@ namespace Bighead.BuildSystem.Editor
 
         private bool CheckIncrementalAvailable()
         {
-            Debug.Log("[BuildConfigSection] 强制允许增量打包（测试模式）");
+            // Debug.Log("[BuildConfigSection] 强制允许增量打包（测试模式）");
             return true;
         }
 
