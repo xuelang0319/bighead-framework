@@ -1,28 +1,70 @@
-using System;
-using System.IO;
-using System.Net.Http;
+
+
+using System.Collections;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
+using UnityEngine.Networking;
 
 public class Test : MonoBehaviour
 {
     private void Awake()
     {
         Debug.LogError($"{nameof(Test)} Awake");
+        //StartCoroutine(DownloadFile());
+        
         Step();
         /*await Main();
         Debug.LogError($"Execute Finished");*/
+
+    } 
+    
+    private IEnumerator DownloadFile()
+    {
+        const string url = "http://120.26.192.253:8091/1.0.1/catalog_1.0.1.hash";
+        Debug.Log("[FileDownloadTest] 开始请求: " + url);
+
+        using (UnityWebRequest www = UnityWebRequest.Get(url))
+        {
+            yield return www.SendWebRequest();
+
+            if (www.result == UnityWebRequest.Result.ConnectionError ||
+                www.result == UnityWebRequest.Result.ProtocolError)
+            {
+                Debug.LogError("[FileDownloadTest] 下载失败: " + www.error);
+            }
+            else
+            {
+                // 保存到本地
+                Debug.Log("[FileDownloadTest] 下载成功, 文件大小: " + www.downloadHandler.data.Length + " bytes");
+                Debug.Log("[FileDownloadTest] 文件内容: " + www.downloadHandler.text);
+            }
+        }
     }
 
     private async void Step()
     {
         Addressables.InternalIdTransformFunc = (location) =>
         {
-            string url = location.InternalId;
-            url = url.Replace("8080", $"8081");
-            Debug.LogError($"URL: " + url);
+            var original = location.InternalId;
+            var url = original;
 
+            // 替换规则
+            if (original.Contains("BuildOutput"))
+            {
+                var port = 0;
+#if UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN
+                port = 8091;
+#elif UNITY_ANDROID
+                port = 8092;
+#elif UNITY_IOS
+                port = 8093;
+#endif
+                var replaceUrl = $"http://120.26.192.253:{port}/{Application.version}";
+                url = original.Replace("BuildOutput", replaceUrl);
+            }
+
+            //Debug.LogError($"Original: {original}, Replace: {url}");
             return url;
         };
         
@@ -39,6 +81,9 @@ public class Test : MonoBehaviour
         handle = Addressables.InstantiateAsync("Assets/Test/GameObject.prefab");
         handle.WaitForCompletion();
         Debug.Log($"Instantiated: {handle.Result.name}");
+
+        var  material = Addressables.LoadAssetAsync<Material>(@"Assets/Test/New Material 1.mat").WaitForCompletion();
+        Debug.Log($"Loaded: {material.name}");
     }
 
     private async UniTask Run()

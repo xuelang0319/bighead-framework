@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEditor;
+using UnityEngine.Serialization;
 
 namespace Bighead.BuildSystem.Editor
 {
@@ -44,8 +45,8 @@ namespace Bighead.BuildSystem.Editor
     {
         [Header("打包平台")] public BuildTarget Platform = BuildTarget.NoTarget;
         [Header("上传服务器")] public bool Upload2Server = false;
-        [Header("服务器地址")] public string ServerUrl;
-        [Header("服务器秘钥")] public string Secret;
+        [Header("上传服务器地址")] public string UploadUrl;
+        [Header("上传服务器秘钥")] public string UploadSecret;
     }
 
     public enum BuildMode

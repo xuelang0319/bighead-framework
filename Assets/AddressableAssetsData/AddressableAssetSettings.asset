@@ -15,7 +15,7 @@ MonoBehaviour:
   m_DefaultGroup: 18513c108fc08524783b161f8320b456
   m_currentHash:
     serializedVersion: 2
-    Hash: 64601298057da5f970d82527e052401d
+    Hash: a91a6f32620ae86e819d1de684abeff0
   m_OptimizeCatalogSize: 0
   m_BuildRemoteCatalog: 1
   m_BundleLocalCatalog: 1
@@ -61,7 +61,7 @@ MonoBehaviour:
       - m_Id: 1960a620a55910441ae8330bd0a3468e
         m_Value: http://[PrivateIpAddress]:[HostingServicePort]
       - m_Id: 24f6cf6e20aaa8742a1dbc7f7ee12f53
-        m_Value: 'http://120.26.192.253:8083/upload '
+        m_Value: BuildOutput
       - m_Id: 2525980bf201b1346b9d27c92a800def
         m_Value: '[UnityEditor.EditorUserBuildSettings.activeBuildTarget]'
       - m_Id: 345685c3fe504ca41bec769d8977fa82

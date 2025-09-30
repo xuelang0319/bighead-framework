@@ -111,7 +111,7 @@ namespace Bighead.BuildSystem.Editor
             string version = PlayerSettings.bundleVersion;
             string platformBuildPath = Path.Combine(setting.BuildPath, platform.ToString(), version);
             string platformLoadPath = platformSetting.Upload2Server
-                ? platformSetting.ServerUrl
+                ? _settingSnapshot.LocalLoadPath
                 : Path.Combine(_settingSnapshot.LocalLoadPath, platform.ToString(), version);
 
             ApplyOutputConfig(platformBuildPath, platformLoadPath);
@@ -132,8 +132,8 @@ namespace Bighead.BuildSystem.Editor
                 }
 
                 Debug.Log($"[BuildSystemPipeline] 开始上传平台 {platform} 的打包结果...");
-                var executor = new UploadExecutor(exeFullPath, platformSetting.Secret);
-                executor.Upload(platformBuildPath, platformSetting.ServerUrl);
+                var executor = new UploadExecutor(exeFullPath, platformSetting.UploadSecret);
+                executor.Upload(platformBuildPath, platformSetting.UploadUrl);
             }
         }
 

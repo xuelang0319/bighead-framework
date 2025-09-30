@@ -37,12 +37,10 @@ namespace Bighead.BuildSystem.Editor
             if (_setting.BuildPlatformSettings == null)
                 _setting.BuildPlatformSettings = new List<BuildPlatformSetting>();
 
-            _platformList = new ReorderableList(_setting.BuildPlatformSettings, typeof(BuildPlatformSetting), true, true, true, true);
+            _platformList = new ReorderableList(_setting.BuildPlatformSettings, typeof(BuildPlatformSetting), true,
+                true, true, true);
 
-            _platformList.drawHeaderCallback = rect =>
-            {
-                EditorGUI.LabelField(rect, "目标平台配置");
-            };
+            _platformList.drawHeaderCallback = rect => { EditorGUI.LabelField(rect, "目标平台配置"); };
 
             _platformList.drawElementCallback = (rect, index, isActive, isFocused) =>
             {
@@ -53,49 +51,60 @@ namespace Bighead.BuildSystem.Editor
                 float lineHeight = EditorGUIUtility.singleLineHeight;
                 float padding = 2f;
 
+                float y = rect.y + padding;
+
                 // 第一行：平台选择 + 上传开关
-                Rect line1 = new Rect(rect.x, rect.y + padding, rect.width, lineHeight);
-                float halfWidth = rect.width * 0.5f;
+                {
+                    float halfWidth = rect.width * 0.5f;
+                    var platformRect = new Rect(rect.x, y, halfWidth - 5, lineHeight);
+                    var uploadRect = new Rect(rect.x + halfWidth, y, halfWidth, lineHeight);
 
-                Rect platformRect = new Rect(line1.x, line1.y, halfWidth - 5, lineHeight);
-                Rect uploadRect   = new Rect(line1.x + halfWidth, line1.y, halfWidth, lineHeight);
+                    element.Platform = (BuildTarget)EditorGUI.EnumPopup(platformRect, "平台", element.Platform);
+                    element.Upload2Server = EditorGUI.ToggleLeft(uploadRect, "上传到服务器", element.Upload2Server);
 
-                element.Platform = (BuildTarget)EditorGUI.EnumPopup(platformRect, "平台", element.Platform);
-                element.Upload2Server = EditorGUI.ToggleLeft(uploadRect, "上传到服务器", element.Upload2Server);
+                    y += lineHeight + padding;
+                }
 
-                // 第二行：服务器地址 + 秘钥（仅当 Upload2Server = true）
+                // （可选）第二行：上传服务器地址 + 秘钥（仅当 Upload2Server = true）
                 if (element.Upload2Server)
                 {
-                    Rect line2 = new Rect(rect.x, line1.y + lineHeight + padding, rect.width, lineHeight);
+                    float labelWidth = 60f;
+                    float fieldWidth = (rect.width - labelWidth * 2f - 10f) / 2f;
 
-                    float labelWidth = 60;
-                    float fieldWidth = (rect.width - labelWidth * 2 - 10) / 2;
-
-                    Rect urlLabelRect = new Rect(line2.x, line2.y, labelWidth, lineHeight);
-                    Rect urlFieldRect = new Rect(urlLabelRect.xMax, line2.y, fieldWidth, lineHeight);
-                    Rect secretLabelRect = new Rect(urlFieldRect.xMax + 5, line2.y, labelWidth, lineHeight);
-                    Rect secretFieldRect = new Rect(secretLabelRect.xMax, line2.y, fieldWidth, lineHeight);
+                    var urlLabelRect = new Rect(rect.x, y, labelWidth, lineHeight);
+                    var urlFieldRect = new Rect(urlLabelRect.xMax, y, fieldWidth, lineHeight);
+                    var secretLabelRect = new Rect(urlFieldRect.xMax + 5f, y, labelWidth, lineHeight);
+                    var secretFieldRect = new Rect(secretLabelRect.xMax, y, fieldWidth, lineHeight);
 
                     EditorGUI.LabelField(urlLabelRect, "服务器");
-                    element.ServerUrl = EditorGUI.TextField(urlFieldRect, element.ServerUrl);
+                    element.UploadUrl = EditorGUI.TextField(urlFieldRect, element.UploadUrl);
 
                     EditorGUI.LabelField(secretLabelRect, "秘钥");
-                    element.Secret = EditorGUI.PasswordField(secretFieldRect, element.Secret);
+                    element.UploadSecret = EditorGUI.PasswordField(secretFieldRect, element.UploadSecret);
+
+                    y += lineHeight + padding;
                 }
             };
 
-            // 动态高度：Upload2Server = true 时增加一行高度
+            // 动态高度：基础(平台+上传开关) + 下载行；若开启上传，再加一行
             _platformList.elementHeightCallback = index =>
             {
                 if (index < 0 || index >= _setting.BuildPlatformSettings.Count)
                     return EditorGUIUtility.singleLineHeight + 4;
 
                 var element = _setting.BuildPlatformSettings[index];
-                float baseHeight = EditorGUIUtility.singleLineHeight + 4;
-                if (element.Upload2Server)
-                    baseHeight += EditorGUIUtility.singleLineHeight + 4;
+                float h = 0f;
+                float line = EditorGUIUtility.singleLineHeight;
+                float pad = 4f;
 
-                return baseHeight;
+                // 第一行
+                h += line + pad;
+                // 若开启上传：上传地址+秘钥一行
+                if (element.Upload2Server) h += line + pad;
+                // 下载地址行（始终显示）
+                h += line + pad;
+
+                return h;
             };
 
             _platformList.onAddCallback = list =>
@@ -109,6 +118,7 @@ namespace Bighead.BuildSystem.Editor
                     _setting.BuildPlatformSettings.RemoveAt(list.index);
             };
         }
+
 
         public void Draw()
         {
@@ -180,7 +190,7 @@ namespace Bighead.BuildSystem.Editor
             EditorGUILayout.EndHorizontal();
             GUILayout.Space(6);
         }
-        
+
         private void DrawAddressablesLink()
         {
             var rect = EditorGUILayout.GetControlRect(false, EditorGUIUtility.singleLineHeight);

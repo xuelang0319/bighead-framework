@@ -14,18 +14,18 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   BuildPath: BuildOutput
   LocalLoadPath: BuildOutput
-  Mode: 0
+  Mode: 1
   ClientUploaderPath: FileTransferSolution/ClientUploader/bin/Debug/net6.0/ClientUploader.exe
   BuildPlatformSettings:
   - Platform: 19
     Upload2Server: 1
-    ServerUrl: 'http://120.26.192.253:8081/upload '
-    Secret: 123456
+    UploadUrl: http://120.26.192.253:8081/upload
+    UploadSecret: 123456
   - Platform: 13
     Upload2Server: 1
-    ServerUrl: 'http://120.26.192.253:8082/upload '
-    Secret: 123456
+    UploadUrl: http://120.26.192.253:8082/upload
+    UploadSecret: 123456
   - Platform: 9
     Upload2Server: 1
-    ServerUrl: 'http://120.26.192.253:8083/upload '
-    Secret: 123456
+    UploadUrl: http://120.26.192.253:8083/upload
+    UploadSecret: 123456
