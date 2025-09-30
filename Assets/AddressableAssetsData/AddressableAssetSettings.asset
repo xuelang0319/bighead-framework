@@ -15,7 +15,7 @@ MonoBehaviour:
   m_DefaultGroup: 18513c108fc08524783b161f8320b456
   m_currentHash:
     serializedVersion: 2
-    Hash: 6096f0554731056633620536df40ecd3
+    Hash: 64601298057da5f970d82527e052401d
   m_OptimizeCatalogSize: 0
   m_BuildRemoteCatalog: 1
   m_BundleLocalCatalog: 1
@@ -69,9 +69,9 @@ MonoBehaviour:
       - m_Id: 589424cbb6f214b4b92bf83fc66981c7
         m_Value: '[UnityEngine.AddressableAssets.Addressables.BuildPath]/[BuildTarget]'
       - m_Id: cbac88325ae226e47ae0c18c716e01ce
-        m_Value: BuildOutput\iOS\0.1
+        m_Value: BuildOutput\iOS\1.0.1
       - m_Id: d497bc8898736234487ab8e4814da4e9
-        m_Value: BuildOutput\iOS\0.1
+        m_Value: BuildOutput\iOS\1.0.1
       - m_Id: e270f59275bf9f64ca4827404fc1782e
         m_Value: BuildOutput/StandaloneWindows64
       - m_Id: e8ae3ace8c41079489e4543e27f3016c
@@ -144,7 +144,7 @@ MonoBehaviour:
           m_Key: HostingServiceUploadSpeed
         - m_AssemblyName: mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089
           m_ClassName: System.String
-          m_Data: BuildOutput\iOS\0.1
+          m_Data: BuildOutput\iOS\1.0.1
           m_Key: ContentRoot
         - m_AssemblyName: mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089
           m_ClassName: System.Boolean
