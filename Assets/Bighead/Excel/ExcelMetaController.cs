@@ -11,17 +11,26 @@ namespace Bighead.Excel
         /// 并生成 ExcelMetaCollectionSO 存储于 ExcelSetting.ExcelMetaCollectionPath。
         /// 这里优先用 FilePath 做增量匹配，回退到 ExcelName。
         /// </summary>
-        public static ExcelMetaCollectionSO BuildExcelMetaCollection()
+        public static ExcelMetaCollectionSO BuildExcelMetaCollection(IEnumerable<string> directories)
         {
             // 1) 读取旧集合（可能为 null）
             var loadPath = ExcelSetting.ExcelMetaCollectionPath;
             var oldCollection = ExcelPipelineMethods.LoadExcelMetaCollectionSO(loadPath);
 
             // 2) 扫描所有 Excel 源文件
-            var excelFiles = ExcelPipelineMethods.FindAllExcelFiles(ExcelSetting.DefaultExcelSourceDir);
-            if (excelFiles == null || excelFiles.Count == 0)
+            var excelFiles = new HashSet<string>();
+            foreach (var directory in directories)
             {
-                Debug.LogWarning($"[ExcelMeta] No Excel files found in: {ExcelSetting.DefaultExcelSourceDir}");
+                var directoryExcelFiles = ExcelPipelineMethods.FindAllExcelFiles(directory);
+                foreach (var excelFile in directoryExcelFiles)
+                {
+                    excelFiles.Add(excelFile);
+                }
+            }
+
+            if (excelFiles.Count == 0)
+            {
+                Debug.LogWarning($"[ExcelMeta] No Excel files found in: {string.Join("、", directories)}");
                 return oldCollection;
             }
 
@@ -38,12 +47,12 @@ namespace Bighead.Excel
                 newCollection.Excels.Add(newExcel);
             }
 
-            newCollection.GlobalMD5 = "TODO_GlobalMD5";
+            newCollection.GlobalMD5 = ExcelPipelineMethods.ComputeGlobalMD5(newCollection.Excels);
 
             // 5) 保存
             var savePath = ExcelSetting.ExcelMetaCollectionPath;
             ExcelPipelineMethods.SaveExcelMetaCollectionSO(newCollection, savePath);
-
+            
             Debug.Log($"[ExcelMeta] ExcelMetaCollectionSO build success: {savePath}");
             return newCollection;
         }

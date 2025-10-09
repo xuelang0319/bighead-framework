@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.IO;
+using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using Excel;
@@ -446,6 +447,36 @@ namespace Bighead.Excel
                 Sheets = sheets ?? new List<SheetMeta>(),
                 MD5 = string.Empty // 由外层 BuildOrReuseExcel 赋值
             };
+        }
+        
+        /// <summary>
+        /// 计算整个 Excel 集合的全局 MD5。
+        /// </summary>
+        public static string ComputeGlobalMD5(IEnumerable<ExcelMeta> excels)
+        {
+            if (excels == null)
+                return string.Empty;
+
+            // 稳定排序（防止插入顺序影响）
+            var ordered = excels
+                .OrderBy(e => e.ExcelName, System.StringComparer.Ordinal)
+                .ThenBy(e => e.FilePath, System.StringComparer.Ordinal)
+                .ToList();
+
+            // 拼接所有 Excel 的 MD5 信息
+            var builder = new StringBuilder();
+            foreach (var e in ordered)
+            {
+                builder.Append(e.ExcelName)
+                    .Append(e.FilePath)
+                    .Append(e.MD5);
+            }
+
+            // 计算整体 MD5
+            using var md5 = MD5.Create();
+            var bytes = Encoding.UTF8.GetBytes(builder.ToString());
+            var hash = md5.ComputeHash(bytes);
+            return string.Concat(hash.Select(b => b.ToString("x2")));
         }
     }
 }

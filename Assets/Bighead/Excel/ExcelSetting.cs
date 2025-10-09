@@ -20,10 +20,5 @@ namespace Bighead
         // ExcelMetaCollectionSO 存储路径
         public static string ExcelMetaCollectionPath =>
             Path.Combine(ExcelGeneratedDir, ExcelMetaCollectionFileName).Replace("\\", "/");
-
-        // Excel 原始表格输入目录（比如放 .xlsx 源文件）
-        // 注意：此路径不在 Bighead 内，由用户手动维护。
-        // 可以根据项目习惯进行外部传入。
-        public const string DefaultExcelSourceDir = "Assets/Excels";
     }
 }
