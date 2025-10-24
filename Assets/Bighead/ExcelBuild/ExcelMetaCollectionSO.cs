@@ -83,13 +83,18 @@ namespace Bighead.ExcelBuild
     public class ColumnKey
     {
         /// <summary>
-        /// 列名。
+        /// 列名
         /// </summary>
         public string Name;
 
         /// <summary>
-        /// 列类型（int、float、string、bool、enum...）。
+        /// 列类型
         /// </summary>
         public string Type;
+
+        /// <summary>
+        /// 列描述
+        /// </summary>
+        public string Desc;
     }
 }

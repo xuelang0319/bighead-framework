@@ -13,4 +13,4 @@ MonoBehaviour:
   m_Name: ExcelFoldersSetting
   m_EditorClassIdentifier: 
   Folders:
-  - ../../darksurvivor/UnityProject/Tools/LubanTools/Xlsx
+  - ../Bighead/Table/Excel

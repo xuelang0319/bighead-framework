@@ -136,9 +136,11 @@ namespace Bighead.ExcelBuild
                 return result;
             }
 
-            // 第0行为列名，第1行为类型
+            // 第0行为列名，第1行为类型, 第3行为描述
             var names = data[0];
             var types = data[1];
+            var descs = data[2];
+            
 
             // 取两者中较短的长度，防止越界
             var length = Mathf.Min(names.Length, types.Length);
@@ -148,7 +150,8 @@ namespace Bighead.ExcelBuild
                 var key = new ColumnKey
                 {
                     Name = names[i]?.Trim() ?? string.Empty,
-                    Type = types[i]?.Trim() ?? "string"
+                    Type = types[i]?.Trim() ?? "string",
+                    Desc = descs[i]?.Trim() ?? string.Empty,
                 };
                 result.Add(key);
             }
