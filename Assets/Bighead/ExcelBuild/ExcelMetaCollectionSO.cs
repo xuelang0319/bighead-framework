@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace Bighead.Excel
+namespace Bighead.ExcelBuild
 {
     /// <summary>
     /// Excel 解析后的全局快照。

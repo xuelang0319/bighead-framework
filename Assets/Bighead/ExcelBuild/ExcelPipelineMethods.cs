@@ -10,7 +10,7 @@ using Excel;
 using UnityEditor;
 using UnityEngine;
 
-namespace Bighead.Excel
+namespace Bighead.ExcelBuild
 {
     public static class ExcelPipelineMethods
     {

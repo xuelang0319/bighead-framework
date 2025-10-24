@@ -1,6 +1,6 @@
 ﻿using System.IO;
 
-namespace Bighead
+namespace Bighead.ExcelBuild
 {
     /// <summary>
     /// Excel 模块路径与文件名配置（完全依赖 BigheadSetting）。
