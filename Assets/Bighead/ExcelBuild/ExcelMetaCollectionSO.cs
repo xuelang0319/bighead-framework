@@ -73,9 +73,9 @@ namespace Bighead.ExcelBuild
         /// 表格的完整原始内容（字符串化二维数组）。
         /// 第0行为列名，第1行为类型，第2行起为数据内容。
         /// </summary>
-        public string[][] Data;
+        public List<List<string>> Data = new();
     }
-
+    
     /// <summary>
     /// 表格列的键名与类型。
     /// </summary>
