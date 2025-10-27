@@ -83,7 +83,7 @@ namespace Bighead.ExcelBuild
         /// <summary>
         /// 将 string[][] 数据转为 UTF8 字节序列（用于生成稳定 MD5）。
         /// </summary>
-        public static byte[] ToUtf8Bytes(List<List<string>> data)
+        public static byte[] ToUtf8Bytes(List<RowData> data)
         {
             if (data == null || data.Count == 0)
                 return Array.Empty<byte>();
@@ -110,7 +110,7 @@ namespace Bighead.ExcelBuild
         /// <summary>
         /// 从二维数据计算 MD5（基于内容）。
         /// </summary>
-        public static string ComputeSheetMD5(List<List<string>> data)
+        public static string ComputeSheetMD5(List<RowData> data)
         {
             var bytes = ToUtf8Bytes(data);
             return ComputeMD5(bytes);
@@ -126,7 +126,7 @@ namespace Bighead.ExcelBuild
         /// </summary>
         /// <param name="data">从 Excel 读取的二维数组</param>
         /// <returns>每一列的列名与类型组成的列表</returns>
-        public static List<ColumnKey> ExtractKeys(List<List<string>> data)
+        public static List<ColumnKey> ExtractKeys(List<RowData> data)
         {
             var result = new List<ColumnKey>();
 
@@ -144,15 +144,15 @@ namespace Bighead.ExcelBuild
             
 
             // 取两者中较短的长度，防止越界
-            var length = Mathf.Min(names.Count, types.Count);
+            var length = Mathf.Min(names.Cells.Count, types.Cells.Count);
 
             for (int i = 0; i < length; i++)
             {
                 var key = new ColumnKey
                 {
-                    Name = names[i]?.Trim() ?? string.Empty,
-                    Type = types[i]?.Trim() ?? "string",
-                    Desc = descs[i]?.Trim() ?? string.Empty,
+                    Name = names.Cells[i]?.Trim() ?? string.Empty,
+                    Type = types.Cells[i]?.Trim() ?? "string",
+                    Desc = descs.Cells[i]?.Trim() ?? string.Empty,
                 };
                 result.Add(key);
             }
@@ -177,7 +177,7 @@ namespace Bighead.ExcelBuild
         /// <param name="sheetName">工作表名称</param>
         /// <param name="data">表格内容矩阵</param>
         /// <returns>构建完成的 SheetMeta 对象</returns>
-        public static SheetMeta BuildSheetMeta(string sheetName, List<List<string>> data)
+        public static SheetMeta BuildSheetMeta(string sheetName, List<RowData> data)
         {
             if (data == null || data.Count == 0)
                 return null;
@@ -195,7 +195,7 @@ namespace Bighead.ExcelBuild
             // 数据从第3行（索引3）开始
             if (data.Count > 3)
             {
-                var contentRows = new List<List<string>>();
+                var contentRows = new List<RowData>();
 
                 for (int i = 3; i < data.Count; i++)
                 {
@@ -203,9 +203,9 @@ namespace Bighead.ExcelBuild
 
                     // 可选：过滤空行（所有单元格为空）
                     bool allEmpty = true;
-                    for (int c = 0; c < row.Count; c++)
+                    for (int c = 0; c < row.Cells.Count; c++)
                     {
-                        if (!string.IsNullOrEmpty(row[c]))
+                        if (!string.IsNullOrEmpty(row.Cells[c]))
                         {
                             allEmpty = false;
                             break;
@@ -213,14 +213,16 @@ namespace Bighead.ExcelBuild
                     }
 
                     if (!allEmpty)
+                    {
                         contentRows.Add(row);
+                    }
                 }
 
                 meta.Data = contentRows;
             }
             else
             {
-                meta.Data = new List<List<string>>();
+                meta.Data = new List<RowData>();
             }
 
             return meta;
@@ -236,12 +238,12 @@ namespace Bighead.ExcelBuild
         /// </summary>
         /// <param name="sheet">ExcelDataReader 生成的 DataTable</param>
         /// <returns>二维字符串矩阵</returns>
-        public static List<List<string>> ReadSheetToMatrix(DataTable sheet)
+        public static List<RowData> ReadSheetToMatrix(DataTable sheet)
         {
             if (sheet == null)
             {
                 Debug.LogWarning("[ExcelPipeline] ReadSheetToMatrix: sheet is null");
-                return new List<List<string>>();
+                return new List<RowData>();
             }
 
             var rows = new List<string[]>();
@@ -297,13 +299,14 @@ namespace Bighead.ExcelBuild
             }
 
             // 4️⃣ 重新构造裁剪后的矩阵
-            var finalMatrix = new List<List<string>>(validRowCount);
+            var finalMatrix = new List<RowData>(validRowCount);
             for (int r = 0; r < validRowCount; r++)
             {
                 var srcRow = rows[r];
                 var destRow = new string[lastValidCol + 1];
                 Array.Copy(srcRow, destRow, lastValidCol + 1);
-                finalMatrix.AddRange(destRow);
+                var data = new RowData(){ Cells = new List<string>(destRow)};
+                finalMatrix.Add(data);
             }
 
             return finalMatrix;

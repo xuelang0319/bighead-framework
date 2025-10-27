@@ -18,11 +18,7 @@ MonoBehaviour:
     MD5: e1ea62911ec1dd8d8ca83caa027e86e1
     Sheets:
     - SheetName: Resources
-      MD5: e9b29a12569875687e5663f7ec9088e0
-      SlicingMode: 0
-      RowsPerChunk: 100
-      LoadMode: 0
-      PrimaryKeyIndexes: 00000000
+      MD5: da667a67741f554c139593353315d803
       Keys:
       - Name: ID
         Type: int
@@ -36,24 +32,10 @@ MonoBehaviour:
       - Name: Path
         Type: string
         Desc: "\u8D44\u6E90\u8DEF\u5F84"
-    - SheetName: Resources
-      MD5: e9b29a12569875687e5663f7ec9088e0
-      SlicingMode: 0
-      RowsPerChunk: 100
-      LoadMode: 0
-      PrimaryKeyIndexes: 00000000
-      Keys:
-      - Name: ID
-        Type: int
-        Desc: "\u7F16\u53F7"
-      - Name: Desc
-        Type: string
-        Desc: "\u63CF\u8FF0\uFF0C,\u6D4B\u8BD5"
-      - Name: Label
-        Type: string
-        Desc: "\u6807\u7B7E"
-      - Name: Path
-        Type: string
-        Desc: "\u8D44\u6E90\u8DEF\u5F84"
+      Data:
+      - Cells:
+        - 1
+        - "\u6D4B\u8BD5\u6570\u636E"
+        - test
+        - testPath
   GlobalMD5: 400a6a5a15b11db97d5d123021284d80
-  Encrypt: 1
